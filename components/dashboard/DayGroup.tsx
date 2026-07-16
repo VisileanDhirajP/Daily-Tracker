@@ -14,16 +14,26 @@ interface DayGroupProps {
   group: DayGroupModel;
   editingId: string | null;
   onEdit: (entry: Entry) => void;
+  onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
 }
 
-export function DayGroup({ group, editingId, onEdit, onDelete }: DayGroupProps) {
+export function DayGroup({
+  group,
+  editingId,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: DayGroupProps) {
   const { toast } = useToast();
   const rel = relativeLabel(group.date);
 
   const handleCopy = async () => {
     const ok = await copyToClipboard(buildDaySummary(group.date, group.entries));
-    toast(ok ? "Day summary copied." : "Couldn't copy to clipboard.", ok ? "success" : "error");
+    toast(
+      ok ? "EOD summary copied — paste it into Slack." : "Couldn't copy to clipboard.",
+      ok ? "success" : "error",
+    );
   };
 
   return (
@@ -67,6 +77,7 @@ export function DayGroup({ group, editingId, onEdit, onDelete }: DayGroupProps) 
             entry={entry}
             editing={editingId === entry.id}
             onEdit={onEdit}
+            onDuplicate={onDuplicate}
             onDelete={onDelete}
           />
         ))}

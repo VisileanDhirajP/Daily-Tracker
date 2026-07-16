@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Pencil, Trash2 } from "lucide-react";
+import { Clock, Pencil, Trash2, CopyPlus } from "lucide-react";
 import type { Entry } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/constants";
 import { formatDuration } from "@/lib/format/time";
@@ -12,10 +12,17 @@ interface EntryCardProps {
   entry: Entry;
   editing: boolean;
   onEdit: (entry: Entry) => void;
+  onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
 }
 
-export function EntryCard({ entry, editing, onEdit, onDelete }: EntryCardProps) {
+export function EntryCard({
+  entry,
+  editing,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: EntryCardProps) {
   const meta = CATEGORY_MAP[entry.category];
 
   return (
@@ -45,6 +52,16 @@ export function EntryCard({ entry, editing, onEdit, onDelete }: EntryCardProps) 
             className="rounded-lg p-1.5 text-muted transition-colors hover:bg-blue-brand/10 hover:text-blue-brand"
           >
             <Pencil size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicate(entry)}
+            data-test-id="entry-duplicate-button"
+            aria-label="Duplicate entry"
+            title="Duplicate to another day"
+            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-blue-brand/10 hover:text-blue-brand"
+          >
+            <CopyPlus size={15} />
           </button>
           <button
             type="button"

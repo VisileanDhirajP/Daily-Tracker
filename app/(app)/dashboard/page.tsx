@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { FileDown, Plus } from "lucide-react";
+import { FileDown, Plus, Pencil, CopyPlus } from "lucide-react";
 import type { Entry, EntryInput } from "@/lib/types";
 import { useEntries } from "@/hooks/useEntries";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -22,6 +22,7 @@ export default function DashboardPage() {
 
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [seed, setSeed] = useState<Entry | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [filters, setFilters] = useState<EntryFilters>(EMPTY_FILTERS);
   const [pendingDelete, setPendingDelete] = useState<Entry | null>(null);
@@ -30,18 +31,30 @@ export default function DashboardPage() {
 
   const openAdd = () => {
     setEditing(null);
+    setSeed(null);
     setFormOpen(true);
   };
 
   const handleEdit = (entry: Entry) => {
     setEditing(entry);
+    setSeed(null);
     setSelectedDate(entry.entry_date);
+    setFormOpen(true);
+  };
+
+  const handleDuplicate = (entry: Entry) => {
+    // Copy this entry as a brand-new one, defaulting to today so the user just
+    // confirms/edits the date.
+    setEditing(null);
+    setSelectedDate(todayISO());
+    setSeed(entry);
     setFormOpen(true);
   };
 
   const closeForm = () => {
     setFormOpen(false);
     setEditing(null);
+    setSeed(null);
   };
 
   const handleSubmit = async (input: EntryInput) => {
@@ -114,6 +127,7 @@ export default function DashboardPage() {
             filters={filters}
             editingId={editing?.id ?? null}
             onEdit={handleEdit}
+            onDuplicate={handleDuplicate}
             onDelete={setPendingDelete}
           />
         </div>
@@ -121,14 +135,30 @@ export default function DashboardPage() {
 
       <Modal
         open={formOpen}
-        title={editing ? "Edit entry" : "Log an entry"}
-        subtitle={editing ? undefined : `Logging to ${formatShortDate(selectedDate)}`}
+        title={editing ? "Edit entry" : seed ? "Duplicate entry" : "Log an entry"}
+        subtitle={
+          editing
+            ? undefined
+            : seed
+              ? "Copy of an existing entry — pick a new date and save"
+              : `Logging to ${formatShortDate(selectedDate)}`
+        }
+        icon={
+          editing ? (
+            <Pencil size={20} />
+          ) : seed ? (
+            <CopyPlus size={20} />
+          ) : (
+            <Plus size={20} />
+          )
+        }
         onClose={closeForm}
         testId="entry-modal"
       >
         <EntryForm
           defaultDate={selectedDate}
           editing={editing}
+          seed={seed}
           onSubmit={handleSubmit}
           onSuccess={closeForm}
           onCancel={closeForm}

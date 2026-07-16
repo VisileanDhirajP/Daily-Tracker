@@ -11,7 +11,7 @@ begin
       ('dev', 'meeting', 'review', 'docs', 'support', 'planning', 'other');
   end if;
   if not exists (select 1 from pg_type where typname = 'entry_status') then
-    create type entry_status as enum ('done', 'progress');
+    create type entry_status as enum ('progress', 'hold', 'done');
   end if;
 end$$;
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Plus, Check } from "lucide-react";
+import { Loader2, Plus, Check, CopyPlus } from "lucide-react";
 import type { Category, Entry, EntryInput, EntryStatus } from "@/lib/types";
-import { CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, STATUS_META, STATUS_ORDER } from "@/lib/constants";
 import { splitMinutes, toMinutes } from "@/lib/format/time";
 import { isValidUrl } from "@/lib/security/url";
 import { todayISO } from "@/lib/format/date";
@@ -12,6 +12,8 @@ interface EntryFormProps {
   /** Date pre-filled for a new entry (from the day navigator). */
   defaultDate: string;
   editing: Entry | null;
+  /** When set (and not editing), pre-fill from this entry as a NEW entry. */
+  seed?: Entry | null;
   onSubmit: (input: EntryInput) => Promise<void>;
   /** Called after a successful add/edit (closes the modal). */
   onSuccess: () => void;
@@ -56,25 +58,45 @@ function fromEntry(e: Entry): FormState {
   };
 }
 
+function initialState(
+  editing: Entry | null,
+  seed: Entry | null | undefined,
+  defaultDate: string,
+): FormState {
+  if (editing) return fromEntry(editing);
+  // Duplicate: copy fields but start on a fresh date the user will confirm.
+  if (seed) return { ...fromEntry(seed), entryDate: defaultDate };
+  return emptyState(defaultDate);
+}
+
 export function EntryForm({
   defaultDate,
   editing,
+  seed = null,
   onSubmit,
   onSuccess,
   onCancel,
 }: EntryFormProps) {
   const [state, setState] = useState<FormState>(() =>
-    editing ? fromEntry(editing) : emptyState(defaultDate),
+    initialState(editing, seed, defaultDate),
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const taskRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    setState(editing ? fromEntry(editing) : emptyState(defaultDate));
+    setState(initialState(editing, seed, defaultDate));
     setError(null);
     taskRef.current?.focus();
-  }, [editing, defaultDate]);
+  }, [editing, seed, defaultDate]);
+
+  // Auto-grow the task field so pasted multi-line content stays visible.
+  useEffect(() => {
+    const el = taskRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
+  }, [state.task]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setState((s) => ({ ...s, [key]: value }));
@@ -121,8 +143,9 @@ export function EntryForm({
   };
 
   const inputClass =
-    "w-full rounded-xl border border-hairline bg-white px-3 py-2 text-sm text-ink placeholder:text-muted/70 focus:border-blue-brand";
+    "w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 focus:border-blue-brand";
   const labelClass = "text-xs font-medium text-muted";
+  const isDuplicate = !editing && !!seed;
 
   return (
     <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex flex-col gap-4">
@@ -134,12 +157,13 @@ export function EntryForm({
           ref={taskRef}
           id="entry-task"
           data-test-id="entry-task"
-          rows={3}
+          rows={4}
           required
           value={state.task}
           onChange={(e) => set("task", e.target.value)}
           placeholder="What did you work on?"
-          className={`${inputClass} resize-none`}
+          className={`${inputClass} resize-none leading-relaxed`}
+          style={{ maxHeight: 320 }}
         />
       </div>
 
@@ -213,7 +237,7 @@ export function EntryForm({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>Time spent</label>
           <div className="flex items-center gap-2">
@@ -254,19 +278,19 @@ export function EntryForm({
             role="group"
             aria-label="Status"
           >
-            {(["done", "progress"] as EntryStatus[]).map((s) => (
+            {STATUS_ORDER.map((s) => (
               <button
                 key={s}
                 type="button"
                 data-test-id={`entry-status-${s}`}
                 aria-pressed={state.status === s}
                 onClick={() => set("status", s)}
-                className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors ${
                   state.status === s ? "bg-navy text-white" : "text-muted hover:text-navy"
                 }`}
               >
-                {s === "done" && <Check size={12} />}
-                {s === "done" ? "Done" : "In progress"}
+                {state.status === s && s === "done" && <Check size={12} />}
+                {STATUS_META[s].label}
               </button>
             ))}
           </div>
@@ -298,10 +322,12 @@ export function EntryForm({
             <Loader2 size={16} className="animate-spin" />
           ) : editing ? (
             <Check size={16} />
+          ) : isDuplicate ? (
+            <CopyPlus size={16} />
           ) : (
             <Plus size={16} />
           )}
-          {editing ? "Save changes" : "Add entry"}
+          {editing ? "Save changes" : isDuplicate ? "Add copy" : "Add entry"}
         </button>
       </div>
 

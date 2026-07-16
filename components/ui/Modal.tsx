@@ -7,16 +7,22 @@ interface ModalProps {
   open: boolean;
   title: string;
   subtitle?: string;
+  /** Optional glyph shown in a tinted badge left of the title. */
+  icon?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   testId?: string;
 }
 
-/** Accessible center dialog: dimmed backdrop, Escape to close, body scroll lock. */
+/**
+ * Accessible, vertically-centered dialog: dimmed blurred backdrop, Escape to
+ * close, body scroll lock. Scrolls internally if taller than the viewport.
+ */
 export function Modal({
   open,
   title,
   subtitle,
+  icon,
   onClose,
   children,
   testId = "modal",
@@ -39,7 +45,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-deep/45 p-4 py-6 backdrop-blur-sm animate-fade-in sm:py-10"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-navy-deep/50 p-4 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
       role="presentation"
     >
@@ -48,20 +54,25 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         data-test-id={testId}
-        className="card w-full max-w-lg animate-slide-up p-5 sm:p-6"
+        className="card my-auto w-full max-w-xl animate-slide-up p-6 sm:p-7"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-base font-bold text-navy">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
+        <div className="mb-6 flex items-start gap-3.5">
+          {icon && (
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-brand/10 text-blue-brand">
+              {icon}
+            </span>
+          )}
+          <div className="flex-1 pt-0.5">
+            <h2 className="text-lg font-bold text-navy">{title}</h2>
+            {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
             data-test-id="modal-close"
-            className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-canvas hover:text-ink"
+            className="-mr-1.5 -mt-1.5 shrink-0 rounded-lg p-2 text-muted transition-colors hover:bg-canvas hover:text-ink"
           >
             <X size={18} />
           </button>

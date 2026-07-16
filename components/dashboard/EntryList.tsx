@@ -13,6 +13,7 @@ interface EntryListProps {
   filters: EntryFilters;
   editingId: string | null;
   onEdit: (entry: Entry) => void;
+  onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
 }
 
@@ -39,6 +40,7 @@ export function EntryList({
   filters,
   editingId,
   onEdit,
+  onDuplicate,
   onDelete,
 }: EntryListProps) {
   const groups = useMemo(() => groupByDay(entries), [entries]);
@@ -69,7 +71,7 @@ export function EntryList({
         <p className="max-w-xs text-sm text-muted">
           {filtering
             ? "Try clearing a filter to see more of your history."
-            : "Add your first entry from the panel on the right to start your streak."}
+            : "Hit the Add entry button to log your first task and start your streak."}
         </p>
       </div>
     );
@@ -83,6 +85,7 @@ export function EntryList({
           group={g}
           editingId={editingId}
           onEdit={onEdit}
+          onDuplicate={onDuplicate}
           onDelete={onDelete}
         />
       ))}

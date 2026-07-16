@@ -7,7 +7,7 @@ export type Category =
   | "planning"
   | "other";
 
-export type EntryStatus = "done" | "progress";
+export type EntryStatus = "done" | "progress" | "hold";
 
 export interface Entry {
   id: string;

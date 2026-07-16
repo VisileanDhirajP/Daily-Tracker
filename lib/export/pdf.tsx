@@ -139,7 +139,7 @@ function ReportDocument({ model }: { model: ReportModel }) {
                   </Text>
                   <Text style={styles.cTime}>{formatDuration(e.minutes)}</Text>
                   <Text style={[styles.cStatus, styles.dim]}>
-                    {e.status === "done" ? "Done" : "WIP"}
+                    {e.status === "done" ? "Done" : e.status === "hold" ? "Hold" : "WIP"}
                   </Text>
                 </View>
               ))}

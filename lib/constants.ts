@@ -30,9 +30,16 @@ export const CATEGORY_MAP: Record<Category, CategoryMeta> = CATEGORIES.reduce(
   {} as Record<Category, CategoryMeta>,
 );
 
-export const STATUS_META: Record<EntryStatus, { label: string; short: string }> = {
-  done: { label: "Done", short: "done" },
-  progress: { label: "In progress", short: "in progress" },
+export const STATUS_META: Record<
+  EntryStatus,
+  { label: string; short: string; emoji: string }
+> = {
+  progress: { label: "In progress", short: "in progress", emoji: "🔄" },
+  hold: { label: "On hold", short: "on hold", emoji: "⏸️" },
+  done: { label: "Done", short: "done", emoji: "✅" },
 };
+
+/** Status options in display order (drives the form toggle). */
+export const STATUS_ORDER: EntryStatus[] = ["progress", "hold", "done"];
 
 export const APP_NAME = "Daily Tracker";

@@ -1,23 +1,29 @@
-import { Check, CircleDashed } from "lucide-react";
+import { Check, CircleDashed, PauseCircle, type LucideIcon } from "lucide-react";
 import type { EntryStatus } from "@/lib/types";
 
 /**
- * Status indicator. "Done" uses a green tick — as a *status* signal, not a
- * brand colour (brand palette stays blue-led per VisiLean guidelines).
+ * Status indicator. "Done" uses a green tick as a *status* signal (not a brand
+ * colour — the brand palette stays blue-led per VisiLean guidelines).
  */
+const STYLES: Record<
+  EntryStatus,
+  { label: string; icon: LucideIcon; bg: string; fg: string }
+> = {
+  done: { label: "Done", icon: Check, bg: "#e7f6ec", fg: "#1f8a4c" },
+  progress: { label: "In progress", icon: CircleDashed, bg: "#e6f0fa", fg: "#1e5c96" },
+  hold: { label: "On hold", icon: PauseCircle, bg: "#fbf1d5", fg: "#8f6606" },
+};
+
 export function StatusChip({ status }: { status: EntryStatus }) {
-  if (status === "done") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f6ec] px-2.5 py-1 text-xs font-medium text-[#1f8a4c]">
-        <Check size={12} strokeWidth={3} />
-        Done
-      </span>
-    );
-  }
+  const s = STYLES[status];
+  const Icon = s.icon;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#e6f0fa] px-2.5 py-1 text-xs font-medium text-[#1e5c96]">
-      <CircleDashed size={12} />
-      In progress
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+      style={{ backgroundColor: s.bg, color: s.fg }}
+    >
+      <Icon size={12} strokeWidth={status === "done" ? 3 : 2} />
+      {s.label}
     </span>
   );
 }
