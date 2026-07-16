@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FileDown, Plus, Pencil, CopyPlus } from "lucide-react";
 import type { Entry, EntryInput } from "@/lib/types";
@@ -28,6 +28,29 @@ export default function DashboardPage() {
   const [pendingDelete, setPendingDelete] = useState<Entry | null>(null);
 
   const filtered = useMemo(() => filterEntries(entries, filters), [entries, filters]);
+
+  // Keyboard shortcuts: "N" opens the add-entry modal, "/" focuses search.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) {
+        return;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        document.getElementById("entry-search")?.focus();
+      } else if ((e.key === "n" || e.key === "N") && !formOpen && !pendingDelete) {
+        e.preventDefault();
+        setEditing(null);
+        setSeed(null);
+        setFormOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [formOpen, pendingDelete]);
 
   const openAdd = () => {
     setEditing(null);

@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Download, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, BarChart3, Download, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useToast } from "@/components/ui/ToastProvider";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Wordmark } from "./brand/Wordmark";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, id: "dashboard" },
+  { href: "/insights", label: "Insights", icon: BarChart3, id: "insights" },
   { href: "/export", label: "Export", icon: Download, id: "export" },
   { href: "/settings", label: "Settings", icon: Settings, id: "settings" },
 ];
@@ -57,6 +59,8 @@ export function AppHeader() {
               );
             })}
           </nav>
+
+          <ThemeToggle />
 
           <div className="flex items-center gap-3 border-l border-white/15 pl-3">
             <span className="hidden text-sm text-white sm:inline" title={user?.email}>

@@ -1,4 +1,4 @@
-import type { Category, Entry } from "./types";
+import type { Category, Entry, EntryStatus } from "./types";
 import { dayDiff } from "./format/date";
 
 export interface DayGroup {
@@ -53,26 +53,39 @@ export function usedCategories(entries: Entry[]): Category[] {
 }
 
 export interface EntryFilters {
+  search: string;
   date: string | "all";
   category: Category | "all";
+  status: EntryStatus | "all";
   ticket: string;
 }
 
 export const EMPTY_FILTERS: EntryFilters = {
+  search: "",
   date: "all",
   category: "all",
+  status: "all",
   ticket: "",
 };
 
 export function isFilterActive(f: EntryFilters): boolean {
-  return f.date !== "all" || f.category !== "all" || f.ticket.trim() !== "";
+  return (
+    f.search.trim() !== "" ||
+    f.date !== "all" ||
+    f.category !== "all" ||
+    f.status !== "all" ||
+    f.ticket.trim() !== ""
+  );
 }
 
 export function filterEntries(entries: Entry[], f: EntryFilters): Entry[] {
+  const search = f.search.trim().toLowerCase();
   const ticket = f.ticket.trim().toLowerCase();
   return entries.filter((e) => {
+    if (search && !e.task.toLowerCase().includes(search)) return false;
     if (f.date !== "all" && e.entry_date !== f.date) return false;
     if (f.category !== "all" && e.category !== f.category) return false;
+    if (f.status !== "all" && e.status !== f.status) return false;
     if (ticket && !(e.ticket_number ?? "").toLowerCase().includes(ticket)) {
       return false;
     }

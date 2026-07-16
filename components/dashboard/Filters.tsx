@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { X } from "lucide-react";
-import type { Category, Entry } from "@/lib/types";
-import { CATEGORY_MAP } from "@/lib/constants";
+import { X, Search } from "lucide-react";
+import type { Category, Entry, EntryStatus } from "@/lib/types";
+import { CATEGORY_MAP, STATUS_META, STATUS_ORDER } from "@/lib/constants";
 import {
   EMPTY_FILTERS,
   isFilterActive,
@@ -33,8 +33,26 @@ export function Filters({ allEntries, filtered, filters, onChange }: FiltersProp
     "rounded-xl border border-hairline bg-white px-3 py-2 text-sm text-ink";
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="flex flex-col gap-2.5">
+      {/* Free-text search over task descriptions. Focused by the "/" shortcut. */}
+      <div className="relative">
+        <Search
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+        />
+        <input
+          type="text"
+          id="entry-search"
+          aria-label="Search tasks"
+          data-test-id="filter-search"
+          className={`${selectClass} w-full pl-9`}
+          placeholder="Search tasks…"
+          value={filters.search}
+          onChange={(e) => onChange({ ...filters, search: e.target.value })}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <select
           aria-label="Filter by date"
           data-test-id="filter-date"
@@ -63,6 +81,23 @@ export function Filters({ allEntries, filtered, filters, onChange }: FiltersProp
           {cats.map((c) => (
             <option key={c} value={c}>
               {CATEGORY_MAP[c].label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Filter by status"
+          data-test-id="filter-status"
+          className={selectClass}
+          value={filters.status}
+          onChange={(e) =>
+            onChange({ ...filters, status: e.target.value as EntryStatus | "all" })
+          }
+        >
+          <option value="all">Any status</option>
+          {STATUS_ORDER.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_META[s].label}
             </option>
           ))}
         </select>

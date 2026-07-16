@@ -2,20 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme tokens as RGB channels so Tailwind utilities (bg-card, text-ink, …)
+   resolve via `rgb(var(--x) / <alpha-value>)` and adapt to light/dark. */
 :root {
-  --canvas: #eef2f8;
-  --card: #ffffff;
-  --hairline: #e6edf5;
-  --ink: #132430;
-  --muted: #647587;
+  --canvas: 238 242 248; /* #eef2f8 */
+  --card: 255 255 255; /* #ffffff */
+  --hairline: 230 237 245; /* #e6edf5 */
+  --ink: 19 36 48; /* #132430 */
+  --muted: 100 117 135; /* #647587 */
 }
 
 .dark {
-  --canvas: #0a1a2b;
-  --card: #0f2942;
-  --hairline: #1c3a58;
-  --ink: #eaf1f8;
-  --muted: #9db3c7;
+  --canvas: 10 26 43; /* #0a1a2b */
+  --card: 15 41 66; /* #0f2942 */
+  --hairline: 28 58 88; /* #1c3a58 */
+  --ink: 234 241 248; /* #eaf1f8 */
+  --muted: 157 179 199; /* #9db3c7 */
 }
 
 @layer base {
@@ -23,8 +25,8 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    background-color: var(--canvas);
-    color: var(--ink);
+    background-color: rgb(var(--canvas));
+    color: rgb(var(--ink));
     font-family: var(--font-poppins), system-ui, sans-serif;
     min-height: 100vh;
   }
@@ -74,8 +76,8 @@
   }
 
   .card {
-    background: var(--card);
-    border: 1px solid var(--hairline);
+    background: rgb(var(--card));
+    border: 1px solid rgb(var(--hairline));
     border-radius: 18px;
     box-shadow: 0 10px 30px -12px rgba(18, 62, 102, 0.18);
   }
@@ -97,6 +99,21 @@
     cursor: not-allowed;
     box-shadow: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Dark-mode retrofit for fixed brand colours used as text/surfaces.
+   Unlayered on purpose: unlayered rules beat Tailwind's @layer utilities, so
+   these reliably override `.text-navy` / `.bg-white` in dark mode.
+--------------------------------------------------------------------------- */
+.dark .text-navy {
+  color: rgb(var(--ink));
+}
+.dark .bg-white {
+  background-color: rgb(255 255 255 / 0.06);
+}
+.dark .card {
+  box-shadow: 0 12px 34px -14px rgba(0, 0, 0, 0.55);
 }
 
 /* Respect reduced-motion preference globally. */

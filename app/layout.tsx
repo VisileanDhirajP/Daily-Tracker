@@ -29,8 +29,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${poppins.variable} ${montserrat.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${poppins.variable} ${montserrat.variable}`}
+    >
       <body>
+        {/* Apply the saved theme before paint to avoid a flash of the wrong mode. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('vldt:theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}",
+          }}
+        />
         <Providers>{children}</Providers>
       </body>
     </html>

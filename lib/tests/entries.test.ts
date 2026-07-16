@@ -59,9 +59,29 @@ describe("entries derivation", () => {
     expect(filterEntries(all, { ...EMPTY_FILTERS, ticket: "8238" }).map((e) => e.id)).toEqual(["t"]);
   });
 
+  it("filters by status", () => {
+    const all = [
+      entry({ id: "p", status: "progress" }),
+      entry({ id: "h", status: "hold" }),
+      entry({ id: "d", status: "done" }),
+    ];
+    expect(filterEntries(all, { ...EMPTY_FILTERS, status: "hold" }).map((e) => e.id)).toEqual(["h"]);
+    expect(filterEntries(all, { ...EMPTY_FILTERS, status: "all" })).toHaveLength(3);
+  });
+
+  it("searches task text (case-insensitive)", () => {
+    const all = [
+      entry({ id: "x", task: "Refactored the AXIOS interceptor" }),
+      entry({ id: "y", task: "Standup" }),
+    ];
+    expect(filterEntries(all, { ...EMPTY_FILTERS, search: "axios" }).map((e) => e.id)).toEqual(["x"]);
+  });
+
   it("detects active filters", () => {
     expect(isFilterActive(EMPTY_FILTERS)).toBe(false);
     expect(isFilterActive({ ...EMPTY_FILTERS, ticket: "x" })).toBe(true);
+    expect(isFilterActive({ ...EMPTY_FILTERS, status: "done" })).toBe(true);
+    expect(isFilterActive({ ...EMPTY_FILTERS, search: "hi" })).toBe(true);
   });
 
   it("scopes entries to an inclusive date range", () => {
