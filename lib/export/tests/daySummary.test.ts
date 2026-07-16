@@ -19,47 +19,44 @@ function entry(overrides: Partial<Entry>): Entry {
 }
 
 describe("buildDaySummary (Slack EOD)", () => {
-  it("starts with a bold dated header", () => {
+  it("starts with a bold dated header (no emoji / no EOD label)", () => {
     const out = buildDaySummary("2026-07-16", [entry({})]);
-    expect(out.startsWith("*🗓️ EOD — Thursday, 16 Jul 2026*")).toBe(true);
+    expect(out.split("\n")[0]).toBe("*Thursday, 16 Jul 2026*");
   });
 
-  it("uses a status emoji per entry", () => {
+  it("formats a bullet as: task - Category · time", () => {
     const out = buildDaySummary("2026-07-16", [
-      entry({ task: "A", status: "done" }),
-      entry({ task: "B", status: "progress" }),
-      entry({ task: "C", status: "hold" }),
+      entry({ task: "Daily stand-up", category: "meeting", minutes: 30 }),
     ]);
-    expect(out).toContain("✅ A");
-    expect(out).toContain("🔄 B");
-    expect(out).toContain("⏸️ C");
+    expect(out).toContain("• Daily stand-up - Meeting · 30m");
   });
 
-  it("renders a valid ticket URL as a Slack link and a bare number as plain", () => {
-    const linked = buildDaySummary("2026-07-16", [
-      entry({ ticket_number: "VS-1", ticket_url: "https://x.com/1" }),
-    ]);
-    expect(linked).toContain("(<https://x.com/1|VS-1>)");
-
-    const plain = buildDaySummary("2026-07-16", [
-      entry({ ticket_number: "VS-2", ticket_url: null }),
-    ]);
-    expect(plain).toContain("(VS-2)");
-    expect(plain).not.toContain("<");
-  });
-
-  it("ends with a bold total line", () => {
+  it("bakes the URL into the ticket number as a markdown link", () => {
     const out = buildDaySummary("2026-07-16", [
-      entry({ minutes: 60 }),
-      entry({ minutes: 30 }),
+      entry({ task: "Wired dashboard", ticket_number: "VS-8301", ticket_url: "https://x.com/1", minutes: 195 }),
     ]);
-    expect(out).toContain("*Total:* 1h 30m · 2 entries");
+    expect(out).toContain("• Wired dashboard [VS-8301](https://x.com/1) - Development · 3h 15m");
   });
 
-  it("omits per-entry duration when zero (category only)", () => {
+  it("shows a plain ticket number when there is no URL", () => {
     const out = buildDaySummary("2026-07-16", [
-      entry({ task: "Standup", minutes: 0, category: "meeting", status: "progress" }),
+      entry({ task: "Task", ticket_number: "VS-2", ticket_url: null }),
     ]);
-    expect(out).toContain("• 🔄 Standup — _Meeting_");
+    expect(out).toContain("Task VS-2 -");
+    expect(out).not.toContain("[VS-2]");
+  });
+
+  it("omits time when zero", () => {
+    const out = buildDaySummary("2026-07-16", [
+      entry({ task: "Standup", minutes: 0, category: "meeting" }),
+    ]);
+    expect(out).toContain("• Standup - Meeting");
+    expect(out).not.toContain("Meeting ·");
+  });
+
+  it("does not include a status marker or total line", () => {
+    const out = buildDaySummary("2026-07-16", [entry({ status: "hold" })]);
+    expect(out).not.toContain("Total");
+    expect(out).not.toMatch(/[✅🔄⏸️]/u);
   });
 });

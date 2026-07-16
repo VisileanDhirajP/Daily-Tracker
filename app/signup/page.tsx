@@ -13,7 +13,7 @@ import { scorePassword } from "@/lib/auth/password";
 const METER_COLORS = ["#e6edf5", "#F37E31", "#FCBC36", "#2E7CC4", "#123E66"];
 
 export default function SignupPage() {
-  const { signUp, isMock } = useAuth();
+  const { signUp } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -38,12 +38,12 @@ export default function SignupPage() {
 
     setSubmitting(true);
     try {
-      await signUp(fullName, email, password);
-      if (isMock) {
+      const { needsConfirmation } = await signUp(fullName, email, password);
+      if (needsConfirmation) {
+        setSent(true);
+      } else {
         toast("Account created — you're in!", "success");
         router.replace("/dashboard");
-      } else {
-        setSent(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign up failed.");

@@ -20,7 +20,11 @@ interface AuthContextValue {
   loading: boolean;
   isMock: boolean;
   demoCredentials: { email: string; password: string } | null;
-  signUp: (fullName: string, email: string, password: string) => Promise<void>;
+  signUp: (
+    fullName: string,
+    email: string,
+    password: string,
+  ) => Promise<{ needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -79,10 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (IS_MOCK) {
         const u = await mockAuth.signUp(fullName, email, password);
         setUser(u);
-        return;
+        return { needsConfirmation: false };
       }
       const supabase = supabaseRef.current ?? createClient();
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -91,6 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       if (error) throw new Error(error.message);
+      // When email confirmation is disabled, signUp returns a live session and
+      // onAuthStateChange logs the user straight in.
+      return { needsConfirmation: !data.session };
     },
     [],
   );

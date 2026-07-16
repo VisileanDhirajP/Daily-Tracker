@@ -1,39 +1,36 @@
 import type { Entry } from "../types";
-import { CATEGORY_MAP, STATUS_META } from "../constants";
+import { CATEGORY_MAP } from "../constants";
 import { formatDuration } from "../format/time";
 import { formatLongDate } from "../format/date";
 import { sanitizeUrl } from "../security/url";
-import { sortEntries, sumMinutes } from "../entries";
+import { sortEntries } from "../entries";
 
 /**
- * Slack-ready end-of-day summary for pasting into a channel. Uses Slack mrkdwn:
- * `*bold*`, `_italic_`, `<url|label>` links, and bullet points. Status shows as
- * an emoji (✅ done · 🔄 in progress · ⏸️ on hold) for quick scanning.
+ * Simple end-of-day summary for pasting into Slack:
+ *
+ *   *Thursday, 16 Jul 2026*
+ *   • Daily stand-up + sprint sync - Meeting · 30m
+ *   • Wired up the dashboard [VS-8301](https://…) - Development · 3h 15m
+ *
+ * The ticket number is a markdown link when a URL is present (Slack renders it
+ * as a clickable label on paste), otherwise plain text.
  */
 export function buildDaySummary(date: string, entries: Entry[]): string {
   const sorted = sortEntries(entries);
-  const lines: string[] = [`*🗓️ EOD — ${formatLongDate(date)}*`, ""];
+  const lines: string[] = [`*${formatLongDate(date)}*`];
 
   for (const e of sorted) {
-    const emoji = STATUS_META[e.status].emoji;
-
     let ticket = "";
     if (e.ticket_number) {
       const safe = sanitizeUrl(e.ticket_url);
-      ticket = safe ? ` (<${safe}|${e.ticket_number}>)` : ` (${e.ticket_number})`;
+      ticket = safe ? ` [${e.ticket_number}](${safe})` : ` ${e.ticket_number}`;
     }
 
     const meta = [CATEGORY_MAP[e.category].label];
     if (e.minutes > 0) meta.push(formatDuration(e.minutes));
 
-    lines.push(`• ${emoji} ${e.task}${ticket} — _${meta.join(" · ")}_`);
+    lines.push(`• ${e.task}${ticket} - ${meta.join(" · ")}`);
   }
 
-  lines.push("");
-  lines.push(
-    `*Total:* ${formatDuration(sumMinutes(sorted))} · ${sorted.length} ${
-      sorted.length === 1 ? "entry" : "entries"
-    }`,
-  );
   return lines.join("\n");
 }
