@@ -1,0 +1,71 @@
+import {
+  groupByDay,
+  sortEntries,
+  filterEntries,
+  isFilterActive,
+  inRange,
+  uniqueDates,
+  usedCategories,
+  EMPTY_FILTERS,
+} from "../entries";
+import type { Entry } from "../types";
+
+function entry(overrides: Partial<Entry>): Entry {
+  return {
+    id: Math.random().toString(36).slice(2),
+    user_id: "u1",
+    entry_date: "2026-07-16",
+    task: "Task",
+    category: "dev",
+    ticket_number: null,
+    ticket_url: null,
+    minutes: 30,
+    status: "done",
+    created_at: "2026-07-16T09:00:00.000Z",
+    updated_at: "2026-07-16T09:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("entries derivation", () => {
+  const data: Entry[] = [
+    entry({ id: "a", entry_date: "2026-07-14", created_at: "...09:00", minutes: 60 }),
+    entry({ id: "b", entry_date: "2026-07-16", created_at: "2026-07-16T08:00:00Z", minutes: 30 }),
+    entry({ id: "c", entry_date: "2026-07-16", created_at: "2026-07-16T10:00:00Z", minutes: 90, category: "meeting" }),
+  ];
+
+  it("sorts newest day first, newest-within-day first", () => {
+    const sorted = sortEntries(data);
+    expect(sorted.map((e) => e.id)).toEqual(["c", "b", "a"]);
+  });
+
+  it("groups by day with per-day totals", () => {
+    const groups = groupByDay(data);
+    expect(groups.map((g) => g.date)).toEqual(["2026-07-16", "2026-07-14"]);
+    expect(groups[0].totalMinutes).toBe(120);
+    expect(groups[1].totalMinutes).toBe(60);
+  });
+
+  it("lists unique dates and used categories", () => {
+    expect(uniqueDates(data)).toEqual(["2026-07-16", "2026-07-14"]);
+    expect(usedCategories(data).sort()).toEqual(["dev", "meeting"]);
+  });
+
+  it("filters by date, category and ticket substring", () => {
+    const withTicket = entry({ id: "t", ticket_number: "VS-8238" });
+    const all = [...data, withTicket];
+    expect(filterEntries(all, { ...EMPTY_FILTERS, date: "2026-07-14" }).map((e) => e.id)).toEqual(["a"]);
+    expect(filterEntries(all, { ...EMPTY_FILTERS, category: "meeting" }).map((e) => e.id)).toEqual(["c"]);
+    expect(filterEntries(all, { ...EMPTY_FILTERS, ticket: "8238" }).map((e) => e.id)).toEqual(["t"]);
+  });
+
+  it("detects active filters", () => {
+    expect(isFilterActive(EMPTY_FILTERS)).toBe(false);
+    expect(isFilterActive({ ...EMPTY_FILTERS, ticket: "x" })).toBe(true);
+  });
+
+  it("scopes entries to an inclusive date range", () => {
+    const scoped = inRange(data, "2026-07-15", "2026-07-16");
+    expect(scoped.map((e) => e.id).sort()).toEqual(["b", "c"]);
+  });
+});

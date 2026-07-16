@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #eef2f8;
+  --card: #ffffff;
+  --hairline: #e6edf5;
+  --ink: #132430;
+  --muted: #647587;
+}
+
+.dark {
+  --canvas: #0a1a2b;
+  --card: #0f2942;
+  --hairline: #1c3a58;
+  --ink: #eaf1f8;
+  --muted: #9db3c7;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-poppins), system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Ambient glows over the canvas: faint blue top-left, faint gold top-right. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(48rem 32rem at 8% -6%, rgba(46, 124, 196, 0.16), transparent 60%),
+      radial-gradient(42rem 30rem at 96% -8%, rgba(252, 188, 54, 0.14), transparent 60%);
+  }
+  .dark body::before {
+    background:
+      radial-gradient(48rem 32rem at 8% -6%, rgba(46, 124, 196, 0.22), transparent 60%),
+      radial-gradient(42rem 30rem at 96% -8%, rgba(252, 188, 54, 0.10), transparent 60%);
+  }
+
+  *:focus-visible {
+    outline: 3px solid #2e7cc4;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* Navy header gradient + faint blueprint grid overlay (masked to fade out). */
+  .brand-header {
+    position: relative;
+    background: linear-gradient(140deg, #164a78, #123e66 45%, #0b2c4d);
+    overflow: hidden;
+  }
+  .brand-header::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(150, 192, 224, 0.16) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(150, 192, 224, 0.16) 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(120% 120% at 20% 0%, #000 0%, transparent 70%);
+    mask-image: radial-gradient(120% 120% at 20% 0%, #000 0%, transparent 70%);
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px -12px rgba(18, 62, 102, 0.18);
+  }
+
+  .btn-cta {
+    background: linear-gradient(135deg, #fcbc36, #f79a2e 55%, #f37e31);
+    color: #123e66;
+    box-shadow: 0 8px 20px -8px rgba(243, 126, 49, 0.55);
+    font-weight: 600;
+  }
+  .btn-cta:hover {
+    filter: brightness(1.03);
+  }
+  .btn-cta:active {
+    transform: translateY(1px);
+  }
+  .btn-cta:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+/* Respect reduced-motion preference globally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
