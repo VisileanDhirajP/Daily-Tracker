@@ -157,7 +157,7 @@ export function EntryForm({
           ref={taskRef}
           id="entry-task"
           data-test-id="entry-task"
-          rows={4}
+          rows={2}
           required
           value={state.task}
           onChange={(e) => set("task", e.target.value)}
@@ -285,7 +285,7 @@ export function EntryForm({
                 data-test-id={`entry-status-${s}`}
                 aria-pressed={state.status === s}
                 onClick={() => set("status", s)}
-                className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-xs font-medium transition-colors ${
                   state.status === s ? "bg-navy text-white" : "text-muted hover:text-navy"
                 }`}
               >

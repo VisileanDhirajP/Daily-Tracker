@@ -54,7 +54,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         data-test-id={testId}
-        className="card my-auto w-full max-w-xl animate-slide-up p-6 sm:p-7"
+        className="card my-auto w-full max-w-2xl animate-slide-up p-6 sm:p-7"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-start gap-3.5">
@@ -72,9 +72,9 @@ export function Modal({
             onClick={onClose}
             aria-label="Close"
             data-test-id="modal-close"
-            className="-mr-1.5 -mt-1.5 shrink-0 rounded-lg p-2 text-muted transition-colors hover:bg-canvas hover:text-ink"
+            className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-canvas text-muted transition-colors hover:border-blue-light hover:bg-blue-brand/10 hover:text-blue-brand"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
         {children}

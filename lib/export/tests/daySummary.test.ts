@@ -19,9 +19,12 @@ function entry(overrides: Partial<Entry>): Entry {
 }
 
 describe("buildDaySummary (Slack EOD)", () => {
-  it("starts with a bold dated header (no emoji / no EOD label)", () => {
+  it("starts with a plain date header followed by a blank line", () => {
     const out = buildDaySummary("2026-07-16", [entry({})]);
-    expect(out.split("\n")[0]).toBe("*Thursday, 16 Jul 2026*");
+    const lines = out.split("\n");
+    expect(lines[0]).toBe("Thursday, 16 Jul 2026");
+    expect(lines[1]).toBe("");
+    expect(lines[2]).toMatch(/^• /);
   });
 
   it("formats a bullet as: task - Category · time", () => {
@@ -31,19 +34,20 @@ describe("buildDaySummary (Slack EOD)", () => {
     expect(out).toContain("• Daily stand-up - Meeting · 30m");
   });
 
-  it("bakes the URL into the ticket number as a markdown link", () => {
+  it("shows the ticket as #<number> (letter prefix stripped) and links the URL", () => {
     const out = buildDaySummary("2026-07-16", [
       entry({ task: "Wired dashboard", ticket_number: "VS-8301", ticket_url: "https://x.com/1", minutes: 195 }),
     ]);
-    expect(out).toContain("• Wired dashboard [VS-8301](https://x.com/1) - Development · 3h 15m");
+    expect(out).toContain("• Wired dashboard [#8301](https://x.com/1) - Development · 3h 15m");
+    expect(out).not.toContain("VS-8301");
   });
 
-  it("shows a plain ticket number when there is no URL", () => {
+  it("shows a plain #number when there is no URL", () => {
     const out = buildDaySummary("2026-07-16", [
       entry({ task: "Task", ticket_number: "VS-2", ticket_url: null }),
     ]);
-    expect(out).toContain("Task VS-2 -");
-    expect(out).not.toContain("[VS-2]");
+    expect(out).toContain("Task #2 -");
+    expect(out).not.toContain("[#2]");
   });
 
   it("omits time when zero", () => {
