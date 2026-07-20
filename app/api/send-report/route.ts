@@ -27,8 +27,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email not configured" }, { status: 501 });
   }
 
-  // In supabase mode, require a valid session before relaying mail.
-  if (!IS_MOCK) {
+  // Require a valid session before relaying mail. Always enforced in
+  // production — even if the app is misconfigured to mock mode — so this route
+  // can never become an unauthenticated open relay. Only skipped in genuine
+  // local mock development.
+  if (!IS_MOCK || process.env.NODE_ENV === "production") {
     try {
       const { createClient } = await import("@/lib/supabase/server");
       const supabase = createClient();

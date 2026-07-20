@@ -46,7 +46,10 @@ function AdminPanel() {
         if (active) setProfiles(p);
       })
       .catch(() => {
-        if (active) setProfiles([]);
+        if (active) {
+          setProfiles([]);
+          toast("Couldn't load users. Please retry.", "error");
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -54,7 +57,7 @@ function AdminPanel() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [toast]);
 
   const rows = useMemo(
     () => [...profiles].sort((a, b) => a.full_name.localeCompare(b.full_name)),

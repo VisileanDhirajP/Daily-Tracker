@@ -84,6 +84,15 @@ export default function DashboardPage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (formOpen || pendingDelete) return;
+      // Ignore while any Radix overlay is open (menu/select/popover/dialog) so
+      // shortcuts don't steal focus from — or fire behind — an open control.
+      if (
+        document.querySelector(
+          '[role="dialog"],[role="menu"],[role="listbox"],[data-radix-popper-content-wrapper]',
+        )
+      ) {
+        return;
+      }
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) {

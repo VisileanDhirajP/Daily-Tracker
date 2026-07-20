@@ -154,9 +154,14 @@ export const mockRepository: DataRepository = {
   },
 
   async listTeamEntries(manager: AuthUser): Promise<TeamFeedRow[]> {
+    const profiles = loadProfiles();
+    // Mirror the Supabase RLS: an admin sees everyone; a manager sees only the
+    // employees who list them. (In mock there's no server role, so read it from
+    // the caller's own profile.)
+    const isAdmin = profiles[manager.id]?.role === "admin";
     const mgr = manager.email.trim().toLowerCase();
-    const team = Object.values(loadProfiles()).filter((p) =>
-      p.manager_emails.some((e) => e.trim().toLowerCase() === mgr),
+    const team = Object.values(profiles).filter(
+      (p) => isAdmin || p.manager_emails.some((e) => e.trim().toLowerCase() === mgr),
     );
     const rows: TeamFeedRow[] = [];
     for (const p of team) {

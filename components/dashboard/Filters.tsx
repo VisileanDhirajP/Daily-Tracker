@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { X, Search } from "lucide-react";
 import type { Category, Entry, EntryStatus } from "@/lib/types";
 import { CATEGORY_MAP, STATUS_META, STATUS_ORDER } from "@/lib/constants";
@@ -33,6 +33,17 @@ interface FiltersProps {
 export function Filters({ allEntries, filtered, filters, onChange }: FiltersProps) {
   const dates = useMemo(() => uniqueDates(allEntries), [allEntries]);
   const cats = useMemo(() => usedCategories(allEntries), [allEntries]);
+
+  // If the selected day/category no longer exists (its last entry was deleted,
+  // moved, or re-dated), drop back to "all" so the filter can't get stuck on a
+  // value with a blank trigger and an empty list.
+  useEffect(() => {
+    if (filters.date !== "all" && !dates.includes(filters.date)) {
+      onChange({ ...filters, date: "all" });
+    } else if (filters.category !== "all" && !cats.includes(filters.category)) {
+      onChange({ ...filters, category: "all" });
+    }
+  }, [dates, cats, filters, onChange]);
 
   const active = isFilterActive(filters);
   const totalMinutes = filtered.reduce((a, e) => a + e.minutes, 0);

@@ -14,6 +14,7 @@ import {
   todayISO,
   formatShortDate,
   parseISODate,
+  dayDiff,
 } from "@/lib/format/date";
 import { resolveRange, type RangeKey } from "@/lib/export/range";
 import {
@@ -104,14 +105,18 @@ export default function InsightsPage() {
 
   const data = useMemo(() => {
     const scoped = inRange(entries, range.from, range.to);
-    // Compare against the *aligned* prior calendar period (same weekday span for
-    // week, same day-span for month) so the delta is like-for-like; custom
-    // ranges fall back to the equal-length trailing window.
+    // Compare against the aligned prior period so the delta is like-for-like:
+    // week → the same 7-day window a week earlier; month → the same number of
+    // days ("month-to-date vs same days last month", so a 20-day span compares
+    // against 20 days, not a full 28/31); custom → equal-length trailing window.
     const prev =
       rangeKey === "week"
         ? { from: shiftDay(range.from, -7), to: shiftDay(range.to, -7) }
         : rangeKey === "month"
-          ? { from: shiftMonths(range.from, -1), to: shiftMonths(range.to, -1) }
+          ? (() => {
+              const from = shiftMonths(range.from, -1);
+              return { from, to: shiftDay(from, dayDiff(range.to, range.from)) };
+            })()
           : previousPeriod(range.from, range.to);
     const prevScoped = inRange(entries, prev.from, prev.to);
     const status = countByStatus(scoped);
@@ -399,7 +404,9 @@ export default function InsightsPage() {
                 <div className="flex flex-col gap-3.5">
                   {data.byCategory.map((c) => {
                     const meta = CATEGORY_MAP[c.category];
-                    const pct = Math.round((c.minutes / data.thisMin) * 100);
+                    const pct = data.thisMin
+                      ? Math.round((c.minutes / data.thisMin) * 100)
+                      : 0;
                     return (
                       <div key={c.category}>
                         <div className="mb-1.5 flex items-center justify-between text-xs">

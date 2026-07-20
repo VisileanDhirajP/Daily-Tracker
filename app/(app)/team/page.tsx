@@ -16,6 +16,7 @@ import { CATEGORIES, CATEGORY_MAP, STATUS_META, STATUS_ORDER } from "@/lib/const
 import { RANGE_OPTIONS, resolveRange, type RangeKey } from "@/lib/export/range";
 import { formatLongDate, relativeLabel } from "@/lib/format/date";
 import { formatDuration, formatHours } from "@/lib/format/time";
+import { useToast } from "@/components/ui/ToastProvider";
 import { RequireRole } from "@/components/RequireRole";
 import { TeamFeedRow } from "@/components/team/TeamFeedRow";
 import { TeamExportMenu } from "@/components/team/TeamExportMenu";
@@ -31,6 +32,7 @@ import {
 
 function TeamFeed() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [rows, setRows] = useState<TeamFeedRowData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +54,10 @@ function TeamFeed() {
         if (active) setRows(r);
       })
       .catch(() => {
-        if (active) setRows([]);
+        if (active) {
+          setRows([]);
+          toast("Couldn't load the team feed. Please retry.", "error");
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -60,7 +65,7 @@ function TeamFeed() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, toast]);
 
   const range = useMemo(
     () => resolveRange(rangeKey, { from: customFrom, to: customTo }),

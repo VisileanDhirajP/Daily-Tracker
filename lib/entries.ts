@@ -20,13 +20,16 @@ export interface DayGroup {
   totalMinutes: number;
 }
 
-/** Sort entries newest-first by date, then by created_at within a day. */
+/**
+ * Sort entries newest-first by date, then by created_at within a day, then by
+ * id. The id tiebreak makes this a strict total order so rows never swap
+ * position on re-render when date + created_at happen to be equal.
+ */
 export function sortEntries(entries: Entry[]): Entry[] {
   return [...entries].sort((a, b) => {
-    if (a.entry_date !== b.entry_date) {
-      return a.entry_date < b.entry_date ? 1 : -1;
-    }
-    return a.created_at < b.created_at ? 1 : -1;
+    if (a.entry_date !== b.entry_date) return b.entry_date.localeCompare(a.entry_date);
+    if (a.created_at !== b.created_at) return b.created_at.localeCompare(a.created_at);
+    return b.id.localeCompare(a.id);
   });
 }
 
