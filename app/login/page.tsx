@@ -10,7 +10,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useToast } from "@/components/ui/ToastProvider";
 
 export default function LoginPage() {
-  const { signIn, user, loading, isMock, demoCredentials } = useAuth();
+  const { signIn, user, loading, isMock, demoCredentials, demoManagerCredentials } =
+    useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -42,6 +43,13 @@ export default function LoginPage() {
     if (demoCredentials) {
       setEmail(demoCredentials.email);
       setPassword(demoCredentials.password);
+    }
+  };
+
+  const fillManagerDemo = () => {
+    if (demoManagerCredentials) {
+      setEmail(demoManagerCredentials.email);
+      setPassword(demoManagerCredentials.password);
     }
   };
 
@@ -77,6 +85,20 @@ export default function LoginPage() {
               </button>
               .
             </p>
+            {demoManagerCredentials && (
+              <p className="mt-1 text-muted">
+                Or sign in as a{" "}
+                <button
+                  type="button"
+                  onClick={fillManagerDemo}
+                  data-test-id="fill-manager-demo-button"
+                  className="font-medium text-blue-brand hover:underline"
+                >
+                  manager
+                </button>{" "}
+                to see the Team &amp; Admin views.
+              </p>
+            )}
           </div>
         </div>
       )}

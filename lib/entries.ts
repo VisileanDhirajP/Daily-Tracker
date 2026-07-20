@@ -1,5 +1,18 @@
-import type { Category, Entry, EntryStatus } from "./types";
+import type { Category, Entry, EntryInput, EntryStatus } from "./types";
 import { dayDiff } from "./format/date";
+
+/** Extract the editable payload from an entry (drops server fields). */
+export function toEntryInput(e: Entry): EntryInput {
+  return {
+    entry_date: e.entry_date,
+    task: e.task,
+    category: e.category,
+    ticket_number: e.ticket_number,
+    ticket_url: e.ticket_url,
+    minutes: e.minutes,
+    status: e.status,
+  };
+}
 
 export interface DayGroup {
   date: string; // YYYY-MM-DD

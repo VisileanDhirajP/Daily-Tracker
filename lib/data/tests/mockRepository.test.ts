@@ -1,7 +1,18 @@
-import { mockRepository, seedMockUser } from "../mockRepository";
-import type { EntryInput } from "../../types";
+import { mockRepository, seedMockUser, seedMockProfile } from "../mockRepository";
+import type { EntryInput, Profile } from "../../types";
 
 const USER = "test-user";
+
+function profile(over: Partial<Profile> & { id: string }): Profile {
+  return {
+    full_name: "",
+    email: null,
+    manager_emails: [],
+    role: "user",
+    created_at: "2026-07-16T09:00:00.000Z",
+    ...over,
+  };
+}
 
 function input(overrides: Partial<EntryInput> = {}): EntryInput {
   return {
@@ -48,16 +59,59 @@ describe("mockRepository", () => {
     ).rejects.toThrow();
   });
 
-  it("persists and patches the profile", async () => {
+  it("persists and patches the profile name", async () => {
     expect(await mockRepository.getProfile(USER)).toBeNull();
-    const saved = await mockRepository.updateProfile(USER, {
-      full_name: "Test User",
-      manager_email: "boss@x.com",
-    });
+    const saved = await mockRepository.updateProfile(USER, { full_name: "Test User" });
     expect(saved.full_name).toBe("Test User");
-    const patched = await mockRepository.updateProfile(USER, { manager_email: null });
-    expect(patched.full_name).toBe("Test User");
-    expect(patched.manager_email).toBeNull();
+    expect(saved.role).toBe("user");
+    expect(saved.manager_emails).toEqual([]);
+  });
+
+  it("assigns managers via setUserManagers (admin action)", async () => {
+    seedMockProfile(profile({ id: "emp", full_name: "Emp" }));
+    const updated = await mockRepository.setUserManagers("emp", ["boss@x.com", "boss2@x.com"]);
+    expect(updated.manager_emails).toEqual(["boss@x.com", "boss2@x.com"]);
+    const reloaded = await mockRepository.getProfile("emp");
+    expect(reloaded?.manager_emails).toEqual(["boss@x.com", "boss2@x.com"]);
+  });
+
+  it("seedMockProfile does not clobber an existing profile", () => {
+    seedMockProfile(profile({ id: USER, full_name: "Original", role: "admin" }));
+    seedMockProfile(profile({ id: USER, full_name: "Overwritten", role: "user" }));
+    return mockRepository.getProfile(USER).then((p) => {
+      expect(p?.full_name).toBe("Original");
+      expect(p?.role).toBe("admin");
+    });
+  });
+
+  it("lists team entries for employees who report to a manager", async () => {
+    // Two employees report to the manager; one does not.
+    seedMockProfile(profile({ id: "e1", full_name: "Emp One", email: "e1@x.com", manager_emails: ["boss@x.com"] }));
+    seedMockProfile(profile({ id: "e2", full_name: "Emp Two", email: "e2@x.com", manager_emails: ["BOSS@x.com"] }));
+    seedMockProfile(profile({ id: "e3", full_name: "Emp Three", email: "e3@x.com", manager_emails: ["other@x.com"] }));
+    await mockRepository.createEntry("e1", input({ task: "E1 work" }));
+    await mockRepository.createEntry("e2", input({ task: "E2 work" }));
+    await mockRepository.createEntry("e3", input({ task: "E3 work" }));
+
+    const rows = await mockRepository.listTeamEntries({
+      id: "mgr",
+      email: "boss@x.com",
+      full_name: "Boss",
+    });
+    const names = rows.map((r) => r.employee.full_name).sort();
+    expect(names).toEqual(["Emp One", "Emp Two"]);
+    expect(rows.every((r) => r.employee.email)).toBe(true);
+  });
+
+  it("lists all profiles and changes a role", async () => {
+    seedMockProfile(profile({ id: "z", full_name: "Zoe" }));
+    seedMockProfile(profile({ id: "a", full_name: "Ann" }));
+    const all = await mockRepository.listAllProfiles();
+    expect(all.map((p) => p.full_name)).toEqual(["Ann", "Zoe"]); // sorted
+
+    const updated = await mockRepository.setUserRole("a", "manager");
+    expect(updated.role).toBe("manager");
+    expect((await mockRepository.getProfile("a"))?.role).toBe("manager");
   });
 
   it("seeds a user once and is idempotent", () => {

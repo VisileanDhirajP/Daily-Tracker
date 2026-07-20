@@ -19,8 +19,10 @@ export function StatusChip({ status }: { status: EntryStatus }) {
   const Icon = s.icon;
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-      style={{ backgroundColor: s.bg, color: s.fg }}
+      className="chip inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+      style={
+        { backgroundColor: s.bg, color: s.fg, "--chip-color": s.fg } as React.CSSProperties
+      }
     >
       <Icon size={12} strokeWidth={status === "done" ? 3 : 2} />
       {s.label}

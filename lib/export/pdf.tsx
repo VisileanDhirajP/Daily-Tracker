@@ -9,6 +9,8 @@ import {
   pdf,
 } from "@react-pdf/renderer";
 import type { ReportModel } from "./report";
+import type { TeamFeedRow } from "../types";
+import { groupTeamFeedByDay, teamTotalMinutes } from "../team";
 import { CATEGORY_MAP, APP_NAME } from "../constants";
 import { formatDuration, toHours } from "../format/time";
 import { formatLongDate, formatShortDate } from "../format/date";
@@ -165,16 +167,116 @@ export async function renderReportPdf(model: ReportModel): Promise<Blob> {
   return pdf(<ReportDocument model={model} />).toBlob();
 }
 
-/** Render the report to a base64 data string (server-side email attachment). */
-export async function renderReportPdfBase64(model: ReportModel): Promise<string> {
-  const instance = pdf(<ReportDocument model={model} />);
-  const buffer = await instance.toBuffer();
-  const chunks: Buffer[] = [];
-  return new Promise((resolve, reject) => {
-    // toBuffer returns a Node stream in the server runtime.
-    const stream = buffer as unknown as NodeJS.ReadableStream;
-    stream.on("data", (c: Buffer) => chunks.push(c));
-    stream.on("end", () => resolve(Buffer.concat(chunks).toString("base64")));
-    stream.on("error", reject);
-  });
+// --- Team report (manager view: entries across several people) --------------
+
+const teamStyles = StyleSheet.create({
+  cEmp: { width: "20%", paddingRight: 6 },
+  cTask: { width: "34%", paddingRight: 6 },
+  cCat: { width: "14%" },
+  cTicket: { width: "12%" },
+  cTime: { width: "10%", textAlign: "right" },
+  cStatus: { width: "10%", textAlign: "right" },
+  empText: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#123E66" },
+});
+
+export interface TeamReportMeta {
+  managerName: string;
+  rangeLabel: string;
+  from: string;
+  to: string;
+}
+
+function TeamReportDocument({
+  rows,
+  meta,
+}: {
+  rows: TeamFeedRow[];
+  meta: TeamReportMeta;
+}) {
+  const groups = groupTeamFeedByDay(rows);
+  const people = new Set(rows.map((r) => r.employee.id)).size;
+  return (
+    <Document title={`${APP_NAME} — Team report`}>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header} fixed>
+          <View style={styles.brandRow}>
+            <Svg width={16} height={16} viewBox="0 0 40 40" style={styles.brandMark}>
+              <Rect x="8" y="22" width="6" height="10" rx="2" fill="#96C0E0" />
+              <Rect x="17" y="15" width="6" height="17" rx="2" fill="#2E7CC4" />
+              <Rect x="26" y="8" width="6" height="24" rx="2" fill="#FCBC36" />
+            </Svg>
+            <Text style={styles.brandTitle}>{APP_NAME} — Team</Text>
+          </View>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>Manager: {meta.managerName}</Text>
+            <Text style={styles.metaText}>
+              {meta.rangeLabel}: {formatShortDate(meta.from)} – {formatShortDate(meta.to)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.body}>
+          <View style={styles.summaryCard}>
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{toHours(teamTotalMinutes(rows))}h</Text>
+              <Text style={styles.statLabel}>Total time</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{rows.length}</Text>
+              <Text style={styles.statLabel}>Entries</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{people}</Text>
+              <Text style={styles.statLabel}>People</Text>
+            </View>
+          </View>
+
+          {groups.map((g) => (
+            <View key={g.date} wrap={false}>
+              <View style={styles.dayHeader}>
+                <Text style={styles.dayTitle}>{formatLongDate(g.date)}</Text>
+                <Text style={styles.dayMeta}>
+                  {g.rows.length} {g.rows.length === 1 ? "entry" : "entries"} ·{" "}
+                  {formatDuration(g.totalMinutes)}
+                </Text>
+              </View>
+              {g.rows.map((r) => (
+                <View key={r.id} style={styles.entryRow}>
+                  <Text style={[teamStyles.cEmp, teamStyles.empText]}>
+                    {r.employee.full_name}
+                  </Text>
+                  <View style={teamStyles.cTask}>
+                    <Text style={styles.taskText}>{r.task}</Text>
+                  </View>
+                  <Text style={[teamStyles.cCat, styles.dim]}>
+                    {CATEGORY_MAP[r.category].label}
+                  </Text>
+                  <Text style={[teamStyles.cTicket, styles.dim]}>
+                    {r.ticket_number ?? "—"}
+                  </Text>
+                  <Text style={teamStyles.cTime}>{formatDuration(r.minutes)}</Text>
+                  <Text style={[teamStyles.cStatus, styles.dim]}>
+                    {r.status === "done" ? "Done" : r.status === "hold" ? "Hold" : "WIP"}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.footer} fixed>
+          <Text>{APP_NAME}</Text>
+          <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
+/** Render a manager's team report to a PDF Blob (client-side). */
+export async function renderTeamReportPdf(
+  rows: TeamFeedRow[],
+  meta: TeamReportMeta,
+): Promise<Blob> {
+  return pdf(<TeamReportDocument rows={rows} meta={meta} />).toBlob();
 }

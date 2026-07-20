@@ -106,7 +106,8 @@
    Unlayered on purpose: unlayered rules beat Tailwind's @layer utilities, so
    these reliably override `.text-navy` / `.bg-white` in dark mode.
 --------------------------------------------------------------------------- */
-.dark .text-navy {
+.dark .text-navy,
+.dark .hover\:text-navy:hover {
   color: rgb(var(--ink));
 }
 .dark .bg-white {
@@ -114,6 +115,14 @@
 }
 .dark .card {
   box-shadow: 0 12px 34px -14px rgba(0, 0, 0, 0.55);
+}
+
+/* Category / status chips: fixed light pastel in light mode (set inline), but
+   in dark mode derive a muted translucent tint + lightened text from the chip's
+   own accent colour (`--chip-color`, set inline) so pills don't glow. */
+.dark .chip {
+  background-color: color-mix(in srgb, var(--chip-color) 22%, transparent) !important;
+  color: color-mix(in srgb, var(--chip-color) 72%, white) !important;
 }
 
 /* Respect reduced-motion preference globally. */

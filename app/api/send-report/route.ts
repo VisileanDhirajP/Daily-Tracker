@@ -6,7 +6,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_B64 = 15_000_000; // ~11MB attachment ceiling
 
 interface SendBody {
-  to?: string;
+  to?: string | string[];
   subject?: string;
   summary?: string;
   pdfBase64?: string;
@@ -52,7 +52,8 @@ export async function POST(request: Request) {
 
   const { to, subject, summary, pdfBase64, filename } = body;
 
-  if (!to || !EMAIL_RE.test(to)) {
+  const recipients = (Array.isArray(to) ? to : to ? [to] : []).map((r) => r.trim());
+  if (recipients.length === 0 || !recipients.every((r) => EMAIL_RE.test(r))) {
     return NextResponse.json({ error: "Invalid recipient" }, { status: 400 });
   }
   if (!pdfBase64 || pdfBase64.length > MAX_B64) {
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   try {
     const { error } = await resend.emails.send({
       from,
-      to,
+      to: recipients,
       subject: subject || "Daily work report",
       text: summary || "Please find my work report attached.",
       attachments: [

@@ -12,9 +12,19 @@ export function escapeHtml(input: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Escape a single CSV field per RFC 4180 (quote wrap + doubled quotes). */
+/**
+ * Escape a single CSV field per RFC 4180 (quote wrap + doubled quotes), and
+ * neutralise spreadsheet formula injection: a field beginning with = + - @ (or
+ * a leading tab/CR) is prefixed with a `'` so Excel/Sheets treats it as text,
+ * not a live formula. The exported CSV is meant to open in a spreadsheet, so
+ * this guard matters for user-entered task/ticket values.
+ */
 export function escapeCsv(input: string | number | null | undefined): string {
-  const s = String(input ?? "");
+  let s = String(input ?? "");
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
+    return `"${s.replace(/"/g, '""')}"`;
+  }
   if (/[",\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

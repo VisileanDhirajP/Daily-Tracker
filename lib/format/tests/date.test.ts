@@ -3,6 +3,7 @@ import {
   parseISODate,
   isValidISODate,
   shiftDay,
+  shiftMonths,
   dayDiff,
   relativeLabel,
   startOfWeek,
@@ -26,6 +27,16 @@ describe("date helpers", () => {
   it("shifts days across month boundaries", () => {
     expect(shiftDay("2026-07-31", 1)).toBe("2026-08-01");
     expect(shiftDay("2026-01-01", -1)).toBe("2025-12-31");
+  });
+
+  it("shifts whole months, clamping the day to the target month", () => {
+    expect(shiftMonths("2026-07-16", -1)).toBe("2026-06-16");
+    expect(shiftMonths("2026-07-16", 1)).toBe("2026-08-16");
+    // Jan 31 - 1 month has no 31st in Feb → clamps to the last valid day.
+    expect(shiftMonths("2026-01-31", 1)).toBe("2026-02-28");
+    // Crosses the year boundary going back.
+    expect(shiftMonths("2026-01-15", -1)).toBe("2025-12-15");
+    expect(shiftMonths("bad-date", 1)).toBe("bad-date");
   });
 
   it("computes whole-day differences", () => {

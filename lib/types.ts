@@ -34,10 +34,16 @@ export interface EntryInput {
   status: EntryStatus;
 }
 
+export type UserRole = "user" | "manager" | "admin";
+
 export interface Profile {
   id: string;
   full_name: string;
-  manager_email: string | null;
+  /** Denormalised from auth so managers/admins can identify other users. */
+  email: string | null;
+  /** Emails of this employee's manager(s). An employee can have several. */
+  manager_emails: string[];
+  role: UserRole;
   created_at: string;
 }
 
@@ -45,4 +51,16 @@ export interface AuthUser {
   id: string;
   email: string;
   full_name: string;
+}
+
+/**
+ * An entry enriched with its author's identity, for the manager team feed.
+ * Managers see entries across several people, so each row must name its owner.
+ */
+export interface TeamFeedRow extends Entry {
+  employee: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
 }

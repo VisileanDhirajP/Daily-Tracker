@@ -22,8 +22,8 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           id={inputId}
           data-test-id={testId}
           aria-invalid={error ? true : undefined}
-          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition-colors ${
-            error ? "border-orange-brand" : "border-hairline"
+          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-brand disabled:opacity-60 ${
+            error ? "border-orange-brand" : "border-hairline focus:border-blue-brand"
           } ${className ?? ""}`}
           {...rest}
         />

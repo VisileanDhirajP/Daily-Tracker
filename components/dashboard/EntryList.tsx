@@ -11,7 +11,11 @@ interface EntryListProps {
   loading: boolean;
   error: string | null;
   filters: EntryFilters;
+  view: "cards" | "compact";
   editingId: string | null;
+  selectedIds: Set<string>;
+  onToggleSelect: (entry: Entry) => void;
+  onStatusChange: (entry: Entry, status: import("@/lib/types").EntryStatus) => void;
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
@@ -38,7 +42,11 @@ export function EntryList({
   loading,
   error,
   filters,
+  view,
   editingId,
+  selectedIds,
+  onToggleSelect,
+  onStatusChange,
   onEdit,
   onDuplicate,
   onDelete,
@@ -83,7 +91,11 @@ export function EntryList({
         <DayGroup
           key={g.date}
           group={g}
+          view={view}
           editingId={editingId}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
+          onStatusChange={onStatusChange}
           onEdit={onEdit}
           onDuplicate={onDuplicate}
           onDelete={onDelete}

@@ -29,10 +29,24 @@ export function buildReportSummary(model: ReportModel): string {
   return lines.join("\n");
 }
 
-/** Build a `mailto:` URL with prefilled recipient, subject and body. */
-export function buildMailto(to: string, subject: string, body: string): string {
-  const params = new URLSearchParams({ subject, body });
-  return `mailto:${encodeURIComponent(to)}?${params.toString()}`;
+/**
+ * Build a `mailto:` URL with prefilled recipient(s), subject and body.
+ * Uses encodeURIComponent (→ %20 for spaces) rather than URLSearchParams,
+ * which would encode spaces as "+" that mail clients render literally per RFC 6068.
+ * Multiple recipients are joined with a literal comma (each address encoded).
+ */
+export function buildMailto(
+  to: string | string[],
+  subject: string,
+  body: string,
+): string {
+  const recipients = (Array.isArray(to) ? to : [to])
+    .map((addr) => encodeURIComponent(addr))
+    .join(",");
+  return (
+    `mailto:${recipients}` +
+    `?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  );
 }
 
 export interface SendResult {
@@ -47,7 +61,7 @@ export interface SendResult {
  * a download + mailto draft.
  */
 export async function sendReportEmail(params: {
-  to: string;
+  to: string | string[];
   subject: string;
   summary: string;
   pdfBase64: string;

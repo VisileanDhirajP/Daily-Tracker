@@ -46,6 +46,16 @@ export function shiftDay(iso: string, delta: number): string {
   return toISODate(d);
 }
 
+/** Shift an ISO date by whole months, clamping the day to the target month. */
+export function shiftMonths(iso: string, delta: number): string {
+  const d = parseISODate(iso);
+  if (!d) return iso;
+  const first = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  const lastDay = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const day = Math.min(d.getDate(), lastDay);
+  return toISODate(new Date(first.getFullYear(), first.getMonth(), day));
+}
+
 /** Whole-day difference `a - b` (a and b are ISO dates). */
 export function dayDiff(a: string, b: string): number {
   const da = parseISODate(a);

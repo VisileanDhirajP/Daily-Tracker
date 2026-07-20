@@ -13,6 +13,15 @@ import {
 } from "@/lib/entries";
 import { formatShortDate, relativeLabel } from "@/lib/format/date";
 import { formatHours } from "@/lib/format/time";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface FiltersProps {
   allEntries: Entry[];
@@ -29,23 +38,18 @@ export function Filters({ allEntries, filtered, filters, onChange }: FiltersProp
   const totalMinutes = filtered.reduce((a, e) => a + e.minutes, 0);
   const dayCount = new Set(filtered.map((e) => e.entry_date)).size;
 
-  const selectClass =
-    "rounded-xl border border-hairline bg-white px-3 py-2 text-sm text-ink";
-
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Free-text search over task descriptions. Focused by the "/" shortcut. */}
       <div className="relative">
         <Search
           size={16}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
         />
-        <input
-          type="text"
+        <Input
           id="entry-search"
           aria-label="Search tasks"
           data-test-id="filter-search"
-          className={`${selectClass} w-full pl-9`}
+          className="pl-9"
           placeholder="Search tasks…"
           value={filters.search}
           onChange={(e) => onChange({ ...filters, search: e.target.value })}
@@ -53,60 +57,64 @@ export function Filters({ allEntries, filtered, filters, onChange }: FiltersProp
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <select
-          aria-label="Filter by date"
-          data-test-id="filter-date"
-          className={selectClass}
+        <Select
           value={filters.date}
-          onChange={(e) => onChange({ ...filters, date: e.target.value })}
+          onValueChange={(v) => onChange({ ...filters, date: v })}
         >
-          <option value="all">All dates</option>
-          {dates.map((d) => (
-            <option key={d} value={d}>
-              {relativeLabel(d)} · {formatShortDate(d)}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger data-test-id="filter-date" aria-label="Filter by date">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All dates</SelectItem>
+            {dates.map((d) => (
+              <SelectItem key={d} value={d}>
+                {relativeLabel(d)} · {formatShortDate(d)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <select
-          aria-label="Filter by category"
-          data-test-id="filter-category"
-          className={selectClass}
+        <Select
           value={filters.category}
-          onChange={(e) =>
-            onChange({ ...filters, category: e.target.value as Category | "all" })
+          onValueChange={(v) =>
+            onChange({ ...filters, category: v as Category | "all" })
           }
         >
-          <option value="all">All categories</option>
-          {cats.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_MAP[c].label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger data-test-id="filter-category" aria-label="Filter by category">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {cats.map((c) => (
+              <SelectItem key={c} value={c}>
+                {CATEGORY_MAP[c].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <select
-          aria-label="Filter by status"
-          data-test-id="filter-status"
-          className={selectClass}
+        <Select
           value={filters.status}
-          onChange={(e) =>
-            onChange({ ...filters, status: e.target.value as EntryStatus | "all" })
+          onValueChange={(v) =>
+            onChange({ ...filters, status: v as EntryStatus | "all" })
           }
         >
-          <option value="all">Any status</option>
-          {STATUS_ORDER.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_META[s].label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger data-test-id="filter-status" aria-label="Filter by status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any status</SelectItem>
+            {STATUS_ORDER.map((s) => (
+              <SelectItem key={s} value={s}>
+                {STATUS_META[s].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <input
-          type="text"
+        <Input
           aria-label="Filter by ticket number"
           data-test-id="filter-ticket"
-          className={selectClass}
           placeholder="Ticket #…"
           value={filters.ticket}
           onChange={(e) => onChange({ ...filters, ticket: e.target.value })}
@@ -118,16 +126,18 @@ export function Filters({ allEntries, filtered, filters, onChange }: FiltersProp
           {filtered.length} {filtered.length === 1 ? "entry" : "entries"} · {dayCount}{" "}
           {dayCount === 1 ? "day" : "days"} · {formatHours(totalMinutes)}
         </p>
-        <button
+        <Button
           type="button"
+          variant="link"
+          size="sm"
           disabled={!active}
           onClick={() => onChange(EMPTY_FILTERS)}
           data-test-id="filter-clear"
-          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-blue-brand hover:bg-blue-brand/10 disabled:cursor-not-allowed disabled:text-muted/50 disabled:hover:bg-transparent"
+          className="gap-1 px-2"
         >
           <X size={13} />
           Clear
-        </button>
+        </Button>
       </div>
     </div>
   );

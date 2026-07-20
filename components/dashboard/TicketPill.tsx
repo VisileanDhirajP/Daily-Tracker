@@ -1,5 +1,6 @@
 import { ArrowUpRight, Ticket } from "lucide-react";
 import { sanitizeUrl } from "@/lib/security/url";
+import { Tooltip } from "@/components/ui/tooltip";
 
 interface TicketPillProps {
   ticketNumber: string | null;
@@ -19,18 +20,19 @@ export function TicketPill({ ticketNumber, ticketUrl }: TicketPillProps) {
 
   if (safeUrl) {
     return (
-      <a
-        href={safeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        data-test-id="ticket-pill-link"
-        className="group inline-flex max-w-[16rem] items-center gap-1 rounded-full border border-blue-light bg-blue-brand/5 px-2.5 py-1 text-xs font-medium text-blue-brand transition-colors hover:bg-blue-brand hover:text-white"
-        title={ticketNumber ? `${ticketNumber} — open ticket` : "Open ticket"}
-      >
-        <Ticket size={12} className="shrink-0" />
-        <span className="truncate">{label}</span>
-        <ArrowUpRight size={12} className="shrink-0 opacity-70 group-hover:opacity-100" />
-      </a>
+      <Tooltip label={ticketNumber ? `${ticketNumber} — open ticket` : "Open ticket"}>
+        <a
+          href={safeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-test-id="ticket-pill-link"
+          className="group inline-flex max-w-[16rem] items-center gap-1 rounded-full border border-blue-light bg-blue-brand/5 px-2.5 py-1 text-xs font-medium text-blue-brand transition-colors hover:bg-blue-brand hover:text-white"
+        >
+          <Ticket size={12} className="shrink-0" />
+          <span className="truncate">{label}</span>
+          <ArrowUpRight size={12} className="shrink-0 opacity-70 group-hover:opacity-100" />
+        </a>
+      </Tooltip>
     );
   }
 

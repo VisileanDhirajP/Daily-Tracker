@@ -19,6 +19,15 @@ import {
   sendReportEmail,
 } from "@/lib/export/emailClient";
 import { ReportPreview } from "@/components/export/ReportPreview";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function ExportPage() {
   const { entries } = useEntries();
@@ -29,14 +38,14 @@ export default function ExportPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [category, setCategory] = useState<Category | "all">("all");
-  const [managerEmail, setManagerEmail] = useState("");
+  const [managerEmails, setManagerEmails] = useState<string[]>([]);
   const [busy, setBusy] = useState<null | "pdf" | "csv" | "send">(null);
 
   useEffect(() => {
     if (!user) return;
     repository
       .getProfile(user.id)
-      .then((p) => setManagerEmail(p?.manager_email || ""))
+      .then((p) => setManagerEmails(p?.manager_emails ?? []))
       .catch(() => undefined);
   }, [user]);
 
@@ -45,7 +54,17 @@ export default function ExportPage() {
     [rangeKey, customFrom, customTo],
   );
 
-  const cats = useMemo(() => usedCategories(entries), [entries]);
+  // Category options reflect only what's present in the selected range, sorted
+  // in the canonical palette order (not entry-insertion order).
+  const cats = useMemo(() => {
+    const present = new Set(usedCategories(inRange(entries, range.from, range.to)));
+    return CATEGORIES.filter((c) => present.has(c.value)).map((c) => c.value);
+  }, [entries, range]);
+
+  // If the active category is no longer in range, fall back to "all".
+  useEffect(() => {
+    if (category !== "all" && !cats.includes(category)) setCategory("all");
+  }, [cats, category]);
 
   const model = useMemo(() => {
     let scoped = inRange(entries, range.from, range.to);
@@ -103,8 +122,8 @@ export default function ExportPage() {
 
   const handleSend = async () => {
     if (model.entryCount === 0) return toast("Nothing to send in this range.", "info");
-    if (!managerEmail) {
-      toast("Set a manager email in Settings first.", "info");
+    if (managerEmails.length === 0) {
+      toast("Add a manager in Settings first.", "info");
       return;
     }
     setBusy("send");
@@ -117,7 +136,7 @@ export default function ExportPage() {
       const pdfBase64 = await blobToBase64(blob);
 
       const result = await sendReportEmail({
-        to: managerEmail,
+        to: managerEmails,
         subject,
         summary,
         pdfBase64,
@@ -125,11 +144,14 @@ export default function ExportPage() {
       });
 
       if (result.sent) {
-        toast(`Report sent to ${managerEmail}.`, "success");
+        toast(
+          `Report sent to ${managerEmails.length} manager${managerEmails.length === 1 ? "" : "s"}.`,
+          "success",
+        );
       } else if (result.reason === "not-configured") {
         // Fallback: download the PDF + open a prefilled mail draft.
         downloadFile(filename, blob, "application/pdf");
-        window.location.href = buildMailto(managerEmail, subject, summary);
+        window.location.href = buildMailto(managerEmails, subject, summary);
         toast("Email isn't configured — downloaded the PDF and opened a draft.", "info");
       } else {
         toast(result.message || "Couldn't send the report.", "error");
@@ -179,26 +201,26 @@ export default function ExportPage() {
 
           {rangeKey === "custom" && (
             <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1 text-xs text-muted">
+              <div className="flex flex-col gap-1 text-xs text-muted">
                 From
-                <input
-                  type="date"
-                  data-test-id="range-from"
+                <DatePicker
                   value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  className="rounded-lg border border-hairline px-2 py-1.5 text-sm text-ink"
+                  onChange={setCustomFrom}
+                  testId="range-from"
+                  ariaLabel="From date"
+                  placeholder="From"
                 />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-muted">
+              </div>
+              <div className="flex flex-col gap-1 text-xs text-muted">
                 To
-                <input
-                  type="date"
-                  data-test-id="range-to"
+                <DatePicker
                   value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  className="rounded-lg border border-hairline px-2 py-1.5 text-sm text-ink"
+                  onChange={setCustomTo}
+                  testId="range-to"
+                  ariaLabel="To date"
+                  placeholder="To"
                 />
-              </label>
+              </div>
             </div>
           )}
 
@@ -206,59 +228,63 @@ export default function ExportPage() {
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
               Category
             </p>
-            <select
-              data-test-id="export-category"
+            <Select
               value={category}
-              onChange={(e) => setCategory(e.target.value as Category | "all")}
-              className="w-full rounded-xl border border-hairline bg-white px-3 py-2 text-sm text-ink"
+              onValueChange={(v) => setCategory(v as Category | "all")}
             >
-              <option value="all">All categories</option>
-              {cats.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORY_MAP[c].label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger data-test-id="export-category" aria-label="Category filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {cats.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {CATEGORY_MAP[c].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="border-t border-hairline pt-4">
             <div className="flex flex-col gap-2">
-              <button
-                type="button"
+              <Button
+                variant="cta"
                 onClick={handlePdf}
                 disabled={busy !== null}
                 data-test-id="download-pdf"
-                className="btn-cta flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm"
               >
                 {busy === "pdf" ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
                 Download PDF
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
                 onClick={handleCsv}
                 disabled={busy !== null}
                 data-test-id="download-csv"
-                className="flex items-center justify-center gap-2 rounded-xl border border-hairline px-4 py-2.5 text-sm font-medium text-navy hover:bg-canvas"
               >
                 {busy === "csv" ? <Loader2 size={16} className="animate-spin" /> : <Sheet size={16} />}
                 Download CSV
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
                 onClick={handleSend}
                 disabled={busy !== null}
                 data-test-id="send-manager"
-                className="flex items-center justify-center gap-2 rounded-xl border border-blue-brand px-4 py-2.5 text-sm font-medium text-blue-brand hover:bg-blue-brand/10"
+                className="border-blue-brand text-blue-brand hover:bg-blue-brand/10"
               >
                 {busy === "send" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 Send to manager
-              </button>
+              </Button>
             </div>
             <p className="mt-2 text-xs text-muted">
-              {managerEmail ? (
-                <>Manager: {managerEmail}</>
+              {managerEmails.length > 0 ? (
+                <>
+                  {managerEmails.length === 1 ? "Manager" : "Managers"}:{" "}
+                  {managerEmails.join(", ")}
+                </>
               ) : (
-                <>No manager email set — add one in Settings.</>
+                <>No managers set — add one in Settings.</>
               )}
             </p>
           </div>

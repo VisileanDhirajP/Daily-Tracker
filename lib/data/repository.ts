@@ -1,4 +1,4 @@
-import type { Entry, EntryInput, Profile } from "../types";
+import type { AuthUser, Entry, EntryInput, Profile, TeamFeedRow, UserRole } from "../types";
 
 /**
  * Storage-agnostic data access. Two implementations exist — a localStorage mock
@@ -15,8 +15,27 @@ export interface DataRepository {
   deleteEntry(userId: string, id: string): Promise<void>;
 
   getProfile(userId: string): Promise<Profile | null>;
+  /**
+   * Update the caller's own editable profile fields. `manager_emails` are NOT
+   * here — manager assignment is admin-only (see setUserManagers).
+   */
   updateProfile(
     userId: string,
-    patch: Partial<Pick<Profile, "full_name" | "manager_email">>,
+    patch: Partial<Pick<Profile, "full_name">>,
   ): Promise<Profile>;
+
+  // --- Manager / admin (read-only team access) -----------------------------
+  /**
+   * Entries of everyone the given manager manages — i.e. employees whose
+   * `manager_emails` includes the manager's email — each tagged with its
+   * author. In Supabase mode RLS already narrows the rows to the team; in mock
+   * mode the filtering is done in JS.
+   */
+  listTeamEntries(manager: AuthUser): Promise<TeamFeedRow[]>;
+  /** All profiles (admin only; enforced by RLS in Supabase mode). */
+  listAllProfiles(): Promise<Profile[]>;
+  /** Change a user's role (admin only; enforced by RLS + trigger). */
+  setUserRole(targetUserId: string, role: UserRole): Promise<Profile>;
+  /** Assign a user's manager(s) (admin only; enforced by RLS + trigger). */
+  setUserManagers(targetUserId: string, managerEmails: string[]): Promise<Profile>;
 }

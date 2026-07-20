@@ -1,5 +1,7 @@
-import type { AuthUser } from "../types";
-import { seedMockUser, mockRepository } from "../data/mockRepository";
+import type { AuthUser, Profile } from "../types";
+import { seedMockUser, seedMockProfile } from "../data/mockRepository";
+import { buildEntriesFromSpecs, buildSeedEntries } from "../data/seed";
+import { DEMO_USERS, DEMO_MANAGER_CREDENTIALS } from "../data/demoData";
 
 /**
  * localStorage-backed fake auth for mock mode. NOT secure — passwords are stored
@@ -13,13 +15,12 @@ interface StoredUser extends AuthUser {
 
 const USERS_KEY = "vldt:users";
 const SESSION_KEY = "vldt:session";
+const SEED_VERSION_KEY = "vldt:seed-version";
+// Bump when the demo roster changes so existing browsers re-provision.
+const SEED_VERSION = "3";
 
-const DEMO = {
-  id: "demo-user-0001",
-  email: "demo@visilean.com",
-  full_name: "Demo User",
-  password: "demo1234",
-};
+// The primary demo employee whose credentials fill the login form.
+const DEMO_EMPLOYEE = DEMO_USERS.find((u) => u.email === "demo@visilean.com")!;
 
 function loadUsers(): StoredUser[] {
   if (typeof window === "undefined") return [];
@@ -36,19 +37,40 @@ function saveUsers(users: StoredUser[]): void {
   window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
-/** Ensure the built-in demo account exists and is pre-populated with entries. */
+/**
+ * Ensure the built-in demo roster (two managers + four employees) exists and is
+ * pre-populated with entries. Idempotent: profiles/entries are only seeded when
+ * absent, so it never clobbers in-app changes. Guarded by a seed version so the
+ * work runs once per browser (and again after a roster change).
+ */
 export function ensureDemoUser(): void {
   if (typeof window === "undefined") return;
+  if (window.localStorage.getItem(SEED_VERSION_KEY) === SEED_VERSION) return;
+
   const users = loadUsers();
-  if (!users.some((u) => u.email === DEMO.email)) {
-    users.push({ ...DEMO });
-    saveUsers(users);
-    void mockRepository.updateProfile(DEMO.id, {
-      full_name: DEMO.full_name,
-      manager_email: "manager@visilean.com",
-    });
-    seedMockUser(DEMO.id);
+  for (const u of DEMO_USERS) {
+    if (!users.some((existing) => existing.email === u.email)) {
+      users.push({ id: u.id, email: u.email, full_name: u.full_name, password: u.password });
+    }
+    const profile: Profile = {
+      id: u.id,
+      full_name: u.full_name,
+      email: u.email,
+      manager_emails: u.manager_emails,
+      role: u.role,
+      created_at: new Date().toISOString(),
+    };
+    // force: on a version bump this resets demo profiles to the definition
+    // (e.g. a changed role), while non-demo signups are untouched.
+    seedMockProfile(profile, true);
+    // The primary demo employee gets the rich default set; others use their own.
+    seedMockUser(
+      u.id,
+      u.email === DEMO_EMPLOYEE.email ? buildSeedEntries(u.id) : buildEntriesFromSpecs(u.id, u.specs),
+    );
   }
+  saveUsers(users);
+  window.localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION);
 }
 
 function toAuthUser(u: StoredUser): AuthUser {
@@ -89,7 +111,14 @@ export const mockAuth = {
     };
     users.push(user);
     saveUsers(users);
-    await mockRepository.updateProfile(user.id, { full_name: user.full_name });
+    seedMockProfile({
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      manager_emails: [],
+      role: "user",
+      created_at: new Date().toISOString(),
+    });
     window.localStorage.setItem(SESSION_KEY, user.id);
     return toAuthUser(user);
   },
@@ -114,6 +143,10 @@ export const mockAuth = {
   },
 
   demoCredentials() {
-    return { email: DEMO.email, password: DEMO.password };
+    return { email: DEMO_EMPLOYEE.email, password: DEMO_EMPLOYEE.password };
+  },
+
+  managerDemoCredentials() {
+    return DEMO_MANAGER_CREDENTIALS;
   },
 };

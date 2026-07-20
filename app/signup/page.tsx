@@ -6,11 +6,24 @@ import { useRouter } from "next/navigation";
 import { Loader2, MailCheck } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { TextField } from "@/components/ui/TextField";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useToast } from "@/components/ui/ToastProvider";
 import { scorePassword } from "@/lib/auth/password";
+import { cn } from "@/lib/utils";
 
-const METER_COLORS = ["#e6edf5", "#F37E31", "#FCBC36", "#2E7CC4", "#123E66"];
+// Fill colour per strength score (index 0 unused). Token/brand classes so the
+// meter adapts in dark mode instead of using fixed hex.
+const METER_FILL = ["", "bg-orange-brand", "bg-gold", "bg-blue-brand", "bg-blue-brand"];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+interface FieldErrors {
+  name?: string;
+  email?: string;
+  password?: string;
+  confirm?: string;
+  form?: string;
+}
 
 export default function SignupPage() {
   const { signUp } = useAuth();
@@ -21,7 +34,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -29,16 +42,18 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    if (fullName.trim().length < 2) return setError("Please enter your name.");
+    const next: FieldErrors = {};
+    if (fullName.trim().length < 2) next.name = "Please enter your name.";
+    if (!EMAIL_RE.test(email.trim())) next.email = "Enter a valid email address.";
     if (!strength.acceptable)
-      return setError("Choose a stronger password (8+ chars, mix of types).");
-    if (password !== confirm) return setError("Passwords do not match.");
+      next.password = "Choose a stronger password (8+ chars, mix of types).";
+    if (password !== confirm) next.confirm = "Passwords do not match.";
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
 
     setSubmitting(true);
     try {
-      const { needsConfirmation } = await signUp(fullName, email, password);
+      const { needsConfirmation } = await signUp(fullName, email.trim(), password);
       if (needsConfirmation) {
         setSent(true);
       } else {
@@ -46,7 +61,7 @@ export default function SignupPage() {
         router.replace("/dashboard");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign up failed.");
+      setErrors({ form: err instanceof Error ? err.message : "Sign up failed." });
     } finally {
       setSubmitting(false);
     }
@@ -95,6 +110,7 @@ export default function SignupPage() {
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           placeholder="Alex Kim"
+          error={errors.name}
         />
         <TextField
           label="Email"
@@ -105,6 +121,7 @@ export default function SignupPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@visilean.com"
+          error={errors.email}
         />
         <div>
           <TextField
@@ -116,6 +133,7 @@ export default function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="At least 8 characters"
+            error={errors.password}
           />
           {password.length > 0 && (
             <div className="mt-2">
@@ -123,11 +141,10 @@ export default function SignupPage() {
                 {[0, 1, 2, 3].map((i) => (
                   <span
                     key={i}
-                    className="h-1.5 flex-1 rounded-full transition-colors"
-                    style={{
-                      backgroundColor:
-                        i < strength.score ? METER_COLORS[strength.score] : "#e6edf5",
-                    }}
+                    className={cn(
+                      "h-1.5 flex-1 rounded-full transition-colors",
+                      i < strength.score ? METER_FILL[strength.score] : "bg-hairline",
+                    )}
                   />
                 ))}
               </div>
@@ -144,17 +161,25 @@ export default function SignupPage() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="Re-enter password"
-          error={error}
+          error={errors.confirm}
         />
-        <button
+        {errors.form && (
+          <p
+            className="rounded-lg bg-orange-brand/10 px-3 py-2 text-sm text-orange-brand"
+            role="alert"
+          >
+            {errors.form}
+          </p>
+        )}
+        <Button
           type="submit"
+          variant="cta"
           disabled={submitting}
           data-test-id="signup-submit"
-          className="btn-cta flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm"
         >
           {submitting && <Loader2 size={16} className="animate-spin" />}
           Create account
-        </button>
+        </Button>
       </form>
     </AuthShell>
   );

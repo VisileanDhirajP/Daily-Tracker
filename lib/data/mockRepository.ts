@@ -1,9 +1,9 @@
 import type { DataRepository } from "./repository";
-import type { Entry, EntryInput, Profile } from "../types";
+import type { AuthUser, Entry, EntryInput, Profile, TeamFeedRow, UserRole } from "../types";
 import { buildSeedEntries } from "./seed";
 
 const ENTRIES_KEY = (uid: string) => `vldt:entries:${uid}`;
-const PROFILE_KEY = (uid: string) => `vldt:profile:${uid}`;
+const PROFILES_KEY = "vldt:profiles"; // single map: { [userId]: Profile }
 
 /** In-memory fallback when localStorage is unavailable (SSR / tests). */
 const memory = new Map<string, string>();
@@ -45,18 +45,57 @@ function saveEntries(userId: string, entries: Entry[]): void {
   write(ENTRIES_KEY(userId), JSON.stringify(entries));
 }
 
-/**
- * Seed a mock user with demo entries the first time. Called by the mock auth
- * layer for the built-in demo account; kept out of the DataRepository interface
- * so the Supabase path stays clean.
- */
-export function seedMockUser(userId: string): void {
-  if (read(ENTRIES_KEY(userId)) !== null) return; // already provisioned
-  saveEntries(userId, buildSeedEntries(userId));
+function loadProfiles(): Record<string, Profile> {
+  const raw = read(PROFILES_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, Profile>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveProfiles(map: Record<string, Profile>): void {
+  write(PROFILES_KEY, JSON.stringify(map));
 }
 
 function isoNow(): string {
   return new Date().toISOString();
+}
+
+function defaultProfile(userId: string): Profile {
+  return {
+    id: userId,
+    full_name: "",
+    email: null,
+    manager_emails: [],
+    role: "user",
+    created_at: isoNow(),
+  };
+}
+
+/**
+ * Seed a mock user with demo entries the first time. Called by the mock auth
+ * layer; kept out of the DataRepository interface so the Supabase path stays
+ * clean. `specs` are the pre-built entries; omit to use the default rich set.
+ */
+export function seedMockUser(userId: string, entries?: Entry[]): void {
+  if (read(ENTRIES_KEY(userId)) !== null) return; // already provisioned
+  saveEntries(userId, entries ?? buildSeedEntries(userId));
+}
+
+/**
+ * Provision a full mock profile (role/email/managers), used only by seeding.
+ * By default skips if a profile already exists so it never clobbers in-app
+ * changes (e.g. an admin promoting someone via /admin). `force` overwrites —
+ * used on a seed-version bump to reset the authoritative demo roster.
+ */
+export function seedMockProfile(profile: Profile, force = false): void {
+  const map = loadProfiles();
+  if (map[profile.id] && !force) return;
+  map[profile.id] = profile;
+  saveProfiles(map);
 }
 
 export const mockRepository: DataRepository = {
@@ -99,27 +138,64 @@ export const mockRepository: DataRepository = {
   },
 
   async getProfile(userId: string): Promise<Profile | null> {
-    const raw = read(PROFILE_KEY(userId));
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as Profile;
-    } catch {
-      return null;
-    }
+    return loadProfiles()[userId] ?? null;
   },
 
   async updateProfile(
     userId: string,
-    patch: Partial<Pick<Profile, "full_name" | "manager_email">>,
+    patch: Partial<Pick<Profile, "full_name">>,
   ): Promise<Profile> {
-    const existing = (await this.getProfile(userId)) ?? {
-      id: userId,
-      full_name: "",
-      manager_email: null,
-      created_at: isoNow(),
-    };
+    const map = loadProfiles();
+    const existing = map[userId] ?? defaultProfile(userId);
     const next: Profile = { ...existing, ...patch };
-    write(PROFILE_KEY(userId), JSON.stringify(next));
+    map[userId] = next;
+    saveProfiles(map);
+    return next;
+  },
+
+  async listTeamEntries(manager: AuthUser): Promise<TeamFeedRow[]> {
+    const mgr = manager.email.trim().toLowerCase();
+    const team = Object.values(loadProfiles()).filter((p) =>
+      p.manager_emails.some((e) => e.trim().toLowerCase() === mgr),
+    );
+    const rows: TeamFeedRow[] = [];
+    for (const p of team) {
+      for (const e of loadEntries(p.id)) {
+        rows.push({
+          ...e,
+          employee: { id: p.id, full_name: p.full_name, email: p.email ?? "" },
+        });
+      }
+    }
+    rows.sort((a, b) =>
+      a.entry_date === b.entry_date
+        ? b.created_at.localeCompare(a.created_at)
+        : b.entry_date.localeCompare(a.entry_date),
+    );
+    return rows;
+  },
+
+  async listAllProfiles(): Promise<Profile[]> {
+    return Object.values(loadProfiles()).sort((a, b) =>
+      a.full_name.localeCompare(b.full_name),
+    );
+  },
+
+  async setUserRole(targetUserId: string, role: UserRole): Promise<Profile> {
+    const map = loadProfiles();
+    const existing = map[targetUserId] ?? defaultProfile(targetUserId);
+    const next: Profile = { ...existing, role };
+    map[targetUserId] = next;
+    saveProfiles(map);
+    return next;
+  },
+
+  async setUserManagers(targetUserId: string, managerEmails: string[]): Promise<Profile> {
+    const map = loadProfiles();
+    const existing = map[targetUserId] ?? defaultProfile(targetUserId);
+    const next: Profile = { ...existing, manager_emails: managerEmails };
+    map[targetUserId] = next;
+    saveProfiles(map);
     return next;
   },
 };

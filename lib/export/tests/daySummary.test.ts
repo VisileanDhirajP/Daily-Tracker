@@ -19,15 +19,15 @@ function entry(overrides: Partial<Entry>): Entry {
 }
 
 describe("buildDaySummary (Slack EOD)", () => {
-  it("starts with a plain date header followed by a blank line", () => {
+  it("starts with a bold date header, blank line, then bullet points", () => {
     const out = buildDaySummary("2026-07-16", [entry({})]);
     const lines = out.split("\n");
-    expect(lines[0]).toBe("Thursday, 16 Jul 2026");
+    expect(lines[0]).toBe("*Thursday, 16 Jul 2026*");
     expect(lines[1]).toBe("");
     expect(lines[2]).toMatch(/^• /);
   });
 
-  it("formats a bullet as: task - Category · time", () => {
+  it("formats a bullet as: • task - Category · time", () => {
     const out = buildDaySummary("2026-07-16", [
       entry({ task: "Daily stand-up", category: "meeting", minutes: 30 }),
     ]);

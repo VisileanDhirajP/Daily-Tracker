@@ -27,7 +27,7 @@ export function toHours(total: number): number {
   return Math.round((safe / 60) * 100) / 100;
 }
 
-/** Human hours label for stats, e.g. "2.3h". */
+/** Human hours label for stats, e.g. "2.25h" (2-decimal, via toHours). */
 export function formatHours(total: number): string {
   return `${toHours(total)}h`;
 }

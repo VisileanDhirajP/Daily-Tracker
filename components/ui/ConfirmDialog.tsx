@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./alert-dialog";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -14,6 +23,7 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
+/** Confirmation prompt built on the accessible Radix AlertDialog. */
 export function ConfirmDialog({
   open,
   title,
@@ -24,71 +34,42 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const confirmRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    confirmRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onCancel]);
-
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-navy-deep/40 p-4 animate-fade-in"
-      onClick={onCancel}
-      role="presentation"
+    <AlertDialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onCancel();
+      }}
     >
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-title"
-        data-test-id="confirm-dialog"
-        className="card w-full max-w-sm p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-              destructive ? "bg-orange-brand/15 text-orange-brand" : "bg-blue-brand/15 text-blue-brand"
-            }`}
-          >
-            <AlertTriangle size={18} />
+      <AlertDialogContent data-test-id="confirm-dialog">
+        <AlertDialogHeader>
+          <div className="flex items-start gap-3">
+            <span
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                destructive
+                  ? "bg-orange-brand/15 text-orange-brand"
+                  : "bg-blue-brand/15 text-blue-brand"
+              }`}
+            >
+              <AlertTriangle size={18} />
+            </span>
+            <div>
+              <AlertDialogTitle>{title}</AlertDialogTitle>
+              <AlertDialogDescription className="mt-1">{message}</AlertDialogDescription>
+            </div>
           </div>
-          <div>
-            <h2 id="confirm-title" className="font-semibold text-navy">
-              {title}
-            </h2>
-            <p className="mt-1 text-sm text-muted">{message}</p>
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            data-test-id="confirm-cancel"
-            className="rounded-xl border border-hairline px-4 py-2 text-sm text-ink hover:bg-canvas"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            ref={confirmRef}
-            type="button"
-            onClick={onConfirm}
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-test-id="confirm-cancel">{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction
             data-test-id="confirm-accept"
-            className={`rounded-xl px-4 py-2 text-sm font-medium text-white ${
-              destructive ? "bg-orange-brand hover:brightness-105" : "bg-blue-brand hover:brightness-105"
-            }`}
+            onClick={onConfirm}
+            className={destructive ? "bg-orange-brand text-white hover:brightness-105" : ""}
           >
             {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

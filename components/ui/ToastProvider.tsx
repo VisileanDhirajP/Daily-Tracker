@@ -11,14 +11,26 @@ import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 
 type ToastKind = "success" | "error" | "info";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+interface ToastOptions {
+  action?: ToastAction;
+  /** milliseconds before auto-dismiss (default 4200) */
+  durationMs?: number;
+}
+
 interface Toast {
   id: number;
   kind: ToastKind;
   message: string;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  toast: (message: string, kind?: ToastKind) => void;
+  toast: (message: string, kind?: ToastKind, options?: ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -45,10 +57,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (message: string, kind: ToastKind = "info") => {
+    (message: string, kind: ToastKind = "info", options?: ToastOptions) => {
       const id = ++seq;
-      setToasts((prev) => [...prev, { id, kind, message }]);
-      setTimeout(() => dismiss(id), 4200);
+      setToasts((prev) => [...prev, { id, kind, message, action: options?.action }]);
+      setTimeout(() => dismiss(id), options?.durationMs ?? 4200);
     },
     [dismiss],
   );
@@ -67,11 +79,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role="status"
-              className="card flex items-start gap-3 p-3 animate-slide-up"
+              className="card flex items-center gap-3 p-3 animate-slide-up"
               data-test-id="toast"
             >
-              <Icon size={18} color={ACCENT[t.kind]} className="mt-0.5 shrink-0" />
+              <Icon size={18} color={ACCENT[t.kind]} className="shrink-0" />
               <p className="flex-1 text-sm text-ink">{t.message}</p>
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    t.action?.onClick();
+                    dismiss(t.id);
+                  }}
+                  className="shrink-0 rounded-lg px-2 py-1 text-sm font-semibold text-blue-brand hover:bg-blue-brand/10"
+                  data-test-id="toast-action"
+                >
+                  {t.action.label}
+                </button>
+              )}
               <button
                 type="button"
                 aria-label="Dismiss notification"

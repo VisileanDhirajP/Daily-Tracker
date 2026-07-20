@@ -26,8 +26,10 @@ export function sanitizeUrl(raw: string | null | undefined): string | null {
     return null;
   }
 
-  // Upgrade scheme-less hosts.
-  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed);
+  // Upgrade scheme-less hosts. Only treat the input as already having a scheme
+  // when it uses the `scheme://` form; this avoids mistaking a scheme-less
+  // `host:port` (e.g. "example.com:8080/x") for a scheme named "example.com".
+  const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed);
   const candidate = hasScheme ? trimmed : `https://${trimmed}`;
 
   let url: URL;

@@ -8,11 +8,17 @@ import { formatLongDate, relativeLabel } from "@/lib/format/date";
 import { buildDaySummary } from "@/lib/export/daySummary";
 import { copyToClipboard } from "@/lib/export/download";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Tooltip } from "@/components/ui/tooltip";
 import { EntryCard } from "./EntryCard";
+import { EntryRow } from "./EntryRow";
 
 interface DayGroupProps {
   group: DayGroupModel;
+  view: "cards" | "compact";
   editingId: string | null;
+  selectedIds: Set<string>;
+  onToggleSelect: (entry: Entry) => void;
+  onStatusChange: (entry: Entry, status: import("@/lib/types").EntryStatus) => void;
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
@@ -20,7 +26,11 @@ interface DayGroupProps {
 
 export function DayGroup({
   group,
+  view,
   editingId,
+  selectedIds,
+  onToggleSelect,
+  onStatusChange,
   onEdit,
   onDuplicate,
   onDelete,
@@ -57,30 +67,38 @@ export function DayGroup({
             <span className="px-1 text-hairline">·</span>
             {formatDuration(group.totalMinutes)}
           </span>
-          <button
-            type="button"
-            onClick={handleCopy}
-            data-test-id="copy-day-button"
-            aria-label={`Copy ${formatLongDate(group.date)} summary`}
-            className="rounded-lg p-1.5 text-muted transition-opacity hover:bg-canvas hover:text-blue-brand sm:opacity-0 sm:group-hover/day:opacity-100"
-            title="Copy day summary"
-          >
-            <Copy size={14} />
-          </button>
+          <Tooltip label="Copy day summary">
+            <button
+              type="button"
+              onClick={handleCopy}
+              data-test-id="copy-day-button"
+              aria-label={`Copy ${formatLongDate(group.date)} summary`}
+              className="rounded-lg p-1.5 text-muted transition-opacity hover:bg-canvas hover:text-blue-brand sm:opacity-0 sm:group-hover/day:opacity-100"
+            >
+              <Copy size={14} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2.5">
-        {group.entries.map((entry) => (
-          <EntryCard
-            key={entry.id}
-            entry={entry}
-            editing={editingId === entry.id}
-            onEdit={onEdit}
-            onDuplicate={onDuplicate}
-            onDelete={onDelete}
-          />
-        ))}
+      <div className={`flex flex-col ${view === "compact" ? "gap-1.5" : "gap-2.5"}`}>
+        {group.entries.map((entry) => {
+          const shared = {
+            entry,
+            editing: editingId === entry.id,
+            selected: selectedIds.has(entry.id),
+            onToggleSelect,
+            onStatusChange,
+            onEdit,
+            onDuplicate,
+            onDelete,
+          };
+          return view === "compact" ? (
+            <EntryRow key={entry.id} {...shared} />
+          ) : (
+            <EntryCard key={entry.id} {...shared} />
+          );
+        })}
       </div>
     </section>
   );

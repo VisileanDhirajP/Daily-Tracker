@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Loader2, Plus, Check, CopyPlus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Plus, Check, CopyPlus, History } from "lucide-react";
 import type { Category, Entry, EntryInput, EntryStatus } from "@/lib/types";
-import { CATEGORIES, STATUS_META, STATUS_ORDER } from "@/lib/constants";
+import { CATEGORIES, CATEGORY_MAP, STATUS_META, STATUS_ORDER } from "@/lib/constants";
 import { splitMinutes, toMinutes } from "@/lib/format/time";
 import { isValidUrl } from "@/lib/security/url";
 import { todayISO } from "@/lib/format/date";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface EntryFormProps {
   /** Date pre-filled for a new entry (from the day navigator). */
@@ -14,6 +25,8 @@ interface EntryFormProps {
   editing: Entry | null;
   /** When set (and not editing), pre-fill from this entry as a NEW entry. */
   seed?: Entry | null;
+  /** Past entries used to autocomplete the task field (recent-first). */
+  suggestions?: Entry[];
   onSubmit: (input: EntryInput) => Promise<void>;
   /** Called after a successful add/edit (closes the modal). */
   onSuccess: () => void;
@@ -73,6 +86,7 @@ export function EntryForm({
   defaultDate,
   editing,
   seed = null,
+  suggestions = [],
   onSubmit,
   onSuccess,
   onCancel,
@@ -82,7 +96,27 @@ export function EntryForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [taskFocused, setTaskFocused] = useState(false);
   const taskRef = useRef<HTMLTextAreaElement>(null);
+
+  // Recent-task suggestions: unique past tasks matching what's typed. Editing an
+  // existing entry doesn't suggest (you're refining, not starting fresh).
+  const matches = useMemo(() => {
+    if (editing) return [];
+    const q = state.task.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const seen = new Set<string>();
+    const out: Entry[] = [];
+    for (const e of suggestions) {
+      const key = e.task.trim().toLowerCase();
+      if (key === q || seen.has(key)) continue;
+      if (!key.includes(q)) continue;
+      seen.add(key);
+      out.push(e);
+      if (out.length >= 6) break;
+    }
+    return out;
+  }, [suggestions, state.task, editing]);
 
   useEffect(() => {
     setState(initialState(editing, seed, defaultDate));
@@ -100,6 +134,27 @@ export function EntryForm({
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setState((s) => ({ ...s, [key]: value }));
+
+  // `min`/`max` on <input type="number"> only bind the spinner, not typing — so
+  // clamp duration fields on change. Empty stays empty; junk resets to "".
+  const setClamped = (key: "hours" | "minutes", raw: string, max: number) => {
+    if (raw === "") return set(key, "");
+    const n = Math.floor(Number(raw));
+    if (!Number.isFinite(n)) return;
+    set(key, String(Math.max(0, Math.min(max, n))));
+  };
+
+  const applySuggestion = (e: Entry) => {
+    setState((s) => ({
+      ...s,
+      task: e.task,
+      category: e.category,
+      ticketNumber: e.ticket_number ?? "",
+      ticketUrl: e.ticket_url ?? "",
+    }));
+    setTaskFocused(false);
+    taskRef.current?.focus();
+  };
 
   const urlInvalid = state.ticketUrl.trim() !== "" && !isValidUrl(state.ticketUrl);
 
@@ -142,8 +197,6 @@ export function EntryForm({
     }
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 focus:border-blue-brand";
   const labelClass = "text-xs font-medium text-muted";
   const isDuplicate = !editing && !!seed;
 
@@ -153,51 +206,77 @@ export function EntryForm({
         <label htmlFor="entry-task" className={labelClass}>
           Task
         </label>
-        <textarea
-          ref={taskRef}
-          id="entry-task"
-          data-test-id="entry-task"
-          rows={2}
-          required
-          value={state.task}
-          onChange={(e) => set("task", e.target.value)}
-          placeholder="What did you work on?"
-          className={`${inputClass} resize-none leading-relaxed`}
-          style={{ maxHeight: 320 }}
-        />
+        <div className="relative">
+          <Textarea
+            ref={taskRef}
+            id="entry-task"
+            data-test-id="entry-task"
+            rows={2}
+            required
+            value={state.task}
+            onChange={(e) => set("task", e.target.value)}
+            onFocus={() => setTaskFocused(true)}
+            onBlur={() => setTaskFocused(false)}
+            placeholder="What did you work on?"
+            className="resize-none"
+            style={{ maxHeight: 320 }}
+          />
+          {taskFocused && matches.length > 0 && (
+            <div
+              className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-hairline bg-card shadow-card"
+              data-test-id="task-suggestions"
+            >
+              <p className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted">
+                <History size={11} /> Recent tasks
+              </p>
+              {matches.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  data-test-id="task-suggestion"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => applySuggestion(m)}
+                  className="flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-canvas"
+                >
+                  <span className="line-clamp-1 text-sm text-ink">{m.task}</span>
+                  <span className="text-xs text-muted">
+                    {CATEGORY_MAP[m.category].label}
+                    {m.ticket_number ? ` · ${m.ticket_number}` : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="entry-date" className={labelClass}>
-            Date
-          </label>
-          <input
-            id="entry-date"
-            type="date"
-            data-test-id="entry-date"
+          <span className={labelClass}>Date</span>
+          <DatePicker
             value={state.entryDate}
-            onChange={(e) => e.target.value && set("entryDate", e.target.value)}
-            className={inputClass}
+            onChange={(iso) => iso && set("entryDate", iso)}
+            testId="entry-date"
+            ariaLabel="Entry date"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="entry-category" className={labelClass}>
-            Category
-          </label>
-          <select
-            id="entry-category"
-            data-test-id="entry-category"
+          <span className={labelClass}>Category</span>
+          <Select
             value={state.category}
-            onChange={(e) => set("category", e.target.value as Category)}
-            className={inputClass}
+            onValueChange={(v) => set("category", v as Category)}
           >
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger data-test-id="entry-category" aria-label="Category">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -206,27 +285,26 @@ export function EntryForm({
           <label htmlFor="entry-ticket" className={labelClass}>
             Ticket #
           </label>
-          <input
+          <Input
             id="entry-ticket"
             data-test-id="entry-ticket-number"
             value={state.ticketNumber}
             onChange={(e) => set("ticketNumber", e.target.value)}
             placeholder="VS-1234"
-            className={inputClass}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="entry-url" className={labelClass}>
             Ticket URL
           </label>
-          <input
+          <Input
             id="entry-url"
             data-test-id="entry-ticket-url"
             value={state.ticketUrl}
             onChange={(e) => set("ticketUrl", e.target.value)}
             placeholder="github.com/…"
             aria-invalid={urlInvalid || undefined}
-            className={`${inputClass} ${urlInvalid ? "border-orange-brand" : ""}`}
+            className={urlInvalid ? "border-orange-brand" : ""}
           />
         </div>
       </div>
@@ -242,29 +320,30 @@ export function EntryForm({
           <label className={labelClass}>Time spent</label>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <input
+              <Input
                 type="number"
                 min={0}
+                max={24}
                 data-test-id="entry-hours"
                 aria-label="Hours"
                 value={state.hours}
-                onChange={(e) => set("hours", e.target.value)}
+                onChange={(e) => setClamped("hours", e.target.value, 24)}
                 placeholder="0"
-                className={`${inputClass} w-16 text-center`}
+                className="w-16 text-center"
               />
               <span className="text-xs text-muted">h</span>
             </div>
             <div className="flex items-center gap-1">
-              <input
+              <Input
                 type="number"
                 min={0}
                 max={59}
                 data-test-id="entry-minutes"
                 aria-label="Minutes"
                 value={state.minutes}
-                onChange={(e) => set("minutes", e.target.value)}
+                onChange={(e) => setClamped("minutes", e.target.value, 59)}
                 placeholder="0"
-                className={`${inputClass} w-16 text-center`}
+                className="w-16 text-center"
               />
               <span className="text-xs text-muted">m</span>
             </div>
@@ -304,19 +383,20 @@ export function EntryForm({
       )}
 
       <div className="mt-1 flex items-center gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onCancel}
           data-test-id="entry-cancel"
-          className="rounded-xl border border-hairline px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-canvas hover:text-ink"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
+          variant="cta"
           disabled={submitting}
           data-test-id="entry-submit"
-          className="btn-cta flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm"
+          className="flex-1"
         >
           {submitting ? (
             <Loader2 size={16} className="animate-spin" />
@@ -328,7 +408,7 @@ export function EntryForm({
             <Plus size={16} />
           )}
           {editing ? "Save changes" : isDuplicate ? "Add copy" : "Add entry"}
-        </button>
+        </Button>
       </div>
 
       <p className="-mt-1 text-center text-[11px] text-muted">

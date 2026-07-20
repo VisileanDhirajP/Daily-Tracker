@@ -29,7 +29,12 @@ export default function ResetPasswordPage() {
     setSubmitting(true);
     try {
       await updatePassword(password);
-      toast("Password updated. Please sign in.", "success");
+      // In mock mode updatePassword is a no-op, so don't claim it was saved.
+      if (isMock) {
+        toast("Demo mode — password changes aren't saved.", "info");
+      } else {
+        toast("Password updated. Please sign in.", "success");
+      }
       router.replace("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update password.");

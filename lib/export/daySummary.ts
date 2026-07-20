@@ -6,16 +6,18 @@ import { sanitizeUrl } from "../security/url";
 import { sortEntries } from "../entries";
 
 /**
- * Simple end-of-day summary for pasting into Slack:
+ * End-of-day summary for pasting into Slack. Uses Slack-flavored Markdown that
+ * Slack's composer converts on paste:
  *
- *   Thursday, 16 Jul 2026
+ *   *Thursday, 16 Jul 2026*
  *
  *   • Daily stand-up + sprint sync - Meeting · 30m
  *   • Wired up the dashboard [#8301](https://…) - Development · 3h 15m
  *
- * The ticket is shown as `#<number>` (the letter prefix like "VS-" is stripped)
- * and is a markdown link when a URL is present (Slack renders it as a clickable
- * label on paste), otherwise plain text.
+ * Rendered result in Slack: a **bold** date (`*…*`), round bullet points (the
+ * literal `•` glyph — Slack doesn't convert `- ` to a list on paste), and the
+ * ticket as a clickable `#<number>` link (`[label](url)`; the letter prefix
+ * like "VS-" is stripped). Plain `#<number>` when no URL is present.
  */
 
 /** Display a ticket number as `#<number>`, stripping any leading letter prefix. */
@@ -25,8 +27,8 @@ function ticketLabel(ticketNumber: string): string {
 }
 export function buildDaySummary(date: string, entries: Entry[]): string {
   const sorted = sortEntries(entries);
-  // Plain date header, then a blank line before the entries.
-  const lines: string[] = [formatLongDate(date), ""];
+  // Bold date header (Slack `*…*`), then a blank line before the list.
+  const lines: string[] = [`*${formatLongDate(date)}*`, ""];
 
   for (const e of sorted) {
     let ticket = "";
@@ -39,6 +41,8 @@ export function buildDaySummary(date: string, entries: Entry[]): string {
     const meta = [CATEGORY_MAP[e.category].label];
     if (e.minutes > 0) meta.push(formatDuration(e.minutes));
 
+    // Literal "•" bullet glyph — Slack doesn't reliably convert "- " to a list
+    // on paste, but the bullet character always renders as a round bullet.
     lines.push(`• ${e.task}${ticket} - ${meta.join(" · ")}`);
   }
 
