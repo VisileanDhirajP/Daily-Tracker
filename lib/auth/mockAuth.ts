@@ -2,6 +2,7 @@ import type { AuthUser, Profile } from "../types";
 import { seedMockUser, seedMockProfile } from "../data/mockRepository";
 import { buildEntriesFromSpecs, buildSeedEntries } from "../data/seed";
 import { DEMO_USERS, DEMO_MANAGER_CREDENTIALS } from "../data/demoData";
+import { isCompanyEmail, COMPANY_TOOL_MESSAGE } from "./emailDomain";
 
 /**
  * localStorage-backed fake auth for mock mode. NOT secure — passwords are stored
@@ -100,6 +101,9 @@ export const mockAuth = {
   ): Promise<AuthUser> {
     const users = loadUsers();
     const normEmail = email.trim().toLowerCase();
+    if (!isCompanyEmail(normEmail)) {
+      throw new Error(COMPANY_TOOL_MESSAGE);
+    }
     if (users.some((u) => u.email === normEmail)) {
       throw new Error("An account with that email already exists.");
     }

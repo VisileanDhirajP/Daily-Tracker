@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useToast } from "@/components/ui/ToastProvider";
 import { scorePassword } from "@/lib/auth/password";
+import { isCompanyEmail, COMPANY_TOOL_MESSAGE } from "@/lib/auth/emailDomain";
 import { cn } from "@/lib/utils";
 
 // Fill colour per strength score (index 0 unused). Token/brand classes so the
@@ -44,7 +45,11 @@ export default function SignupPage() {
     e.preventDefault();
     const next: FieldErrors = {};
     if (fullName.trim().length < 2) next.name = "Please enter your name.";
-    if (!EMAIL_RE.test(email.trim())) next.email = "Enter a valid email address.";
+    if (!EMAIL_RE.test(email.trim())) {
+      next.email = "Enter a valid email address.";
+    } else if (!isCompanyEmail(email)) {
+      next.email = COMPANY_TOOL_MESSAGE;
+    }
     if (!strength.acceptable)
       next.password = "Choose a stronger password (8+ chars, mix of types).";
     if (password !== confirm) next.confirm = "Passwords do not match.";
@@ -91,7 +96,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Create your account"
-      subtitle="Track your work, one day at a time."
+      subtitle="An internal VisiLean tool — sign up with your @visilean.com email."
       footer={
         <>
           Already have an account?{" "}
