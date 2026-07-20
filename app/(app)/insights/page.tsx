@@ -31,6 +31,9 @@ import type { EntryStatus } from "@/lib/types";
 import { TicketPill } from "@/components/dashboard/TicketPill";
 import { DatePicker } from "@/components/ui/DatePicker";
 
+const DISPLAY = { fontFamily: "var(--font-montserrat), var(--font-poppins), sans-serif" };
+
+const STATUS_ORDER: EntryStatus[] = ["done", "progress", "hold"];
 const STATUS_COLOR: Record<EntryStatus, string> = {
   progress: "#2E7CC4",
   hold: "#FCBC36",
@@ -54,6 +57,39 @@ const RANGE_TABS: { key: RangeKey; label: string }[] = [
   { key: "custom", label: "Custom" },
 ];
 
+/** One at-a-glance metric inside the hero rail. */
+function HeroStat({
+  value,
+  label,
+  testId,
+}: {
+  value: React.ReactNode;
+  label: string;
+  testId?: string;
+}) {
+  return (
+    <div data-test-id={testId}>
+      <div className="text-lg font-semibold text-white" style={DISPLAY}>
+        {value}
+      </div>
+      <div className="mt-0.5 text-[11px] uppercase tracking-wide text-blue-light">{label}</div>
+    </div>
+  );
+}
+
+function SectionTitle({ eyebrow, title }: { eyebrow?: string; title: string }) {
+  return (
+    <div className="mb-4">
+      {eyebrow && (
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-brand">
+          {eyebrow}
+        </p>
+      )}
+      <h2 className="text-sm font-bold text-navy">{title}</h2>
+    </div>
+  );
+}
+
 export default function InsightsPage() {
   const { entries, loading } = useEntries();
   const [rangeKey, setRangeKey] = useState<RangeKey>("week");
@@ -68,8 +104,8 @@ export default function InsightsPage() {
 
   const data = useMemo(() => {
     const scoped = inRange(entries, range.from, range.to);
-    // Compare against the *aligned* prior calendar period (same weekday span
-    // for week, same day-span for month) so the delta is like-for-like; custom
+    // Compare against the *aligned* prior calendar period (same weekday span for
+    // week, same day-span for month) so the delta is like-for-like; custom
     // ranges fall back to the equal-length trailing window.
     const prev =
       rangeKey === "week"
@@ -79,18 +115,36 @@ export default function InsightsPage() {
           : previousPeriod(range.from, range.to);
     const prevScoped = inRange(entries, prev.from, prev.to);
     const status = countByStatus(scoped);
+    const series = dailySeries(scoped, range.from, range.to);
+    const byCategory = minutesByCategory(scoped);
+    const byWeekday = minutesByWeekday(scoped);
+    const thisMin = sumMinutes(scoped);
+    const activeDays = series.filter((p) => p.minutes > 0).length;
+    const best = series.reduce(
+      (b, p) => (p.minutes > b.minutes ? p : b),
+      { date: "", minutes: 0 },
+    );
+    const busiestIdx = byWeekday.some((m) => m > 0)
+      ? byWeekday.indexOf(Math.max(...byWeekday))
+      : -1;
     return {
       scoped,
-      thisMin: sumMinutes(scoped),
+      thisMin,
       prevMin: sumMinutes(prevScoped),
-      delta: percentChange(sumMinutes(scoped), sumMinutes(prevScoped)),
-      byCategory: minutesByCategory(scoped),
-      byWeekday: minutesByWeekday(scoped),
-      series: dailySeries(scoped, range.from, range.to),
+      delta: percentChange(thisMin, sumMinutes(prevScoped)),
+      byCategory,
+      byWeekday,
+      series,
       tickets: minutesByTicket(scoped).slice(0, 6),
       status,
       done: status.done,
       total: scoped.length,
+      rangeDays: series.length,
+      activeDays,
+      avgActive: activeDays ? thisMin / activeDays : 0,
+      best,
+      busiestIdx,
+      focus: byCategory[0] ?? null,
     };
   }, [entries, range, rangeKey]);
 
@@ -111,15 +165,18 @@ export default function InsightsPage() {
     return cols;
   }, [entries]);
 
-  const rangeLabel = rangeKey === "custom" ? "previous period" : `last ${rangeKey}`;
+  const rangeWord = rangeKey === "custom" ? "prev. period" : `last ${rangeKey}`;
+  const eyebrow =
+    rangeKey === "week" ? "This week" : rangeKey === "month" ? "This month" : "Custom range";
 
   if (loading) {
     return (
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
         <div className="h-6 w-40 animate-pulse rounded bg-hairline" />
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="card h-24 animate-pulse" />
+        <div className="mt-6 h-44 animate-pulse rounded-2xl bg-hairline" />
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          {[0, 1].map((i) => (
+            <div key={i} className="card h-56 animate-pulse" />
           ))}
         </div>
       </main>
@@ -130,29 +187,44 @@ export default function InsightsPage() {
   const maxDay = Math.max(1, ...data.byWeekday);
   const maxTicket = Math.max(1, ...data.tickets.map((t) => t.minutes));
   const donePct = data.total ? Math.round((data.done / data.total) * 100) : 0;
+  const focusPct =
+    data.focus && data.thisMin ? Math.round((data.focus.minutes / data.thisMin) * 100) : 0;
   const todayIdx = ((parseISODate(todayISO())?.getDay() ?? 1) + 6) % 7;
-  // Only mark "today" on the weekday chart when today is actually in range.
   const highlightToday = todayISO() >= range.from && todayISO() <= range.to;
 
-  // Build the trend polyline / area from the daily series.
+  // Hero trend: area + line from the daily series (drawn on the navy panel).
   const maxSeries = Math.max(1, ...data.series.map((p) => p.minutes));
   const n = data.series.length;
   const linePts = data.series.map((p, i) => {
     const x = n <= 1 ? 0 : (i / (n - 1)) * 100;
-    const y = 38 - (p.minutes / maxSeries) * 34;
+    const y = 40 - (p.minutes / maxSeries) * 34;
     return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+
+  // Status donut segments (pathLength=100 → dasharray is percentage directly).
+  let acc = 0;
+  const donut = STATUS_ORDER.filter((s) => data.status[s] > 0).map((s) => {
+    const pct = (data.status[s] / Math.max(1, data.total)) * 100;
+    const seg = { s, pct, offset: acc };
+    acc += pct;
+    return seg;
   });
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header + range control */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-navy">Insights</h1>
           <p className="mt-1 text-sm text-muted">
-            {range.label} · {formatShortDate(range.from)} – {formatShortDate(range.to)}
+            How your time added up · {formatShortDate(range.from)} – {formatShortDate(range.to)}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Report range">
+        <div
+          className="flex flex-wrap items-center gap-1 rounded-xl border border-hairline bg-card p-1"
+          role="group"
+          aria-label="Report range"
+        >
           {RANGE_TABS.map((r) => (
             <button
               key={r.key}
@@ -160,10 +232,10 @@ export default function InsightsPage() {
               data-test-id={`insights-range-${r.key}`}
               aria-pressed={rangeKey === r.key}
               onClick={() => setRangeKey(r.key)}
-              className={`rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 rangeKey === r.key
-                  ? "border-blue-brand bg-blue-brand/10 text-blue-brand"
-                  : "border-hairline text-ink hover:bg-canvas"
+                  ? "bg-blue-brand text-white shadow-sm"
+                  : "text-muted hover:text-navy"
               }`}
             >
               {r.label}
@@ -173,7 +245,7 @@ export default function InsightsPage() {
       </div>
 
       {rangeKey === "custom" && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-5 flex flex-wrap gap-2">
           <DatePicker
             value={customFrom}
             onChange={setCustomFrom}
@@ -194,48 +266,115 @@ export default function InsightsPage() {
       )}
 
       <div className="flex flex-col gap-5">
-        {/* KPI row */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="card p-4" data-test-id="kpi-logged">
-            <p className="text-xs font-medium text-muted">Logged</p>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-navy">{toHours(data.thisMin)}h</span>
-              {data.delta !== null && data.delta !== 0 && (
-                <span
-                  className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
-                    data.delta > 0 ? "text-[#1f8a4c]" : "text-orange-brand"
-                  }`}
-                >
-                  {data.delta > 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-                  {Math.abs(data.delta)}%
+        {/* ── Hero: the period ribbon (headline hours + trend + metric rail) ── */}
+        <section className="brand-header rounded-2xl p-6 text-white shadow-card sm:p-7">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-center">
+            <div data-test-id="kpi-logged">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-light">
+                {eyebrow} · logged
+              </p>
+              <div className="mt-1 flex items-end gap-3">
+                <span className="text-5xl font-bold leading-none text-white" style={DISPLAY}>
+                  {toHours(data.thisMin)}
+                  <span className="ml-1 text-2xl font-semibold text-blue-light">h</span>
                 </span>
+                {data.delta !== null && data.delta !== 0 && (
+                  <span
+                    className="mb-1 inline-flex items-center gap-0.5 rounded-full bg-white/12 px-2 py-0.5 text-xs font-semibold"
+                    style={{ color: data.delta > 0 ? "#7fdca4" : "#f6b45a" }}
+                  >
+                    {data.delta > 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                    {Math.abs(data.delta)}%
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-sm text-blue-light">
+                vs {toHours(data.prevMin)}h {rangeWord}
+                {data.best.minutes > 0 && (
+                  <>
+                    {" · "}best day {formatShortDate(data.best.date)} ({toHours(data.best.minutes)}h)
+                  </>
+                )}
+              </p>
+            </div>
+
+            {/* Trend */}
+            <div className="min-w-0">
+              {n >= 2 ? (
+                <>
+                  <svg
+                    viewBox="0 0 100 42"
+                    preserveAspectRatio="none"
+                    className="h-28 w-full sm:h-32"
+                    role="img"
+                    aria-label="Daily hours trend"
+                  >
+                    <defs>
+                      <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FCBC36" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#FCBC36" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <polyline
+                      points={`0,42 ${linePts.join(" ")} 100,42`}
+                      fill="url(#trendFill)"
+                      stroke="none"
+                    />
+                    <polyline
+                      points={linePts.join(" ")}
+                      fill="none"
+                      stroke="#FCBC36"
+                      strokeWidth={2}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                  <div className="mt-1 flex justify-between text-[11px] text-blue-light">
+                    <span>{formatShortDate(range.from)}</span>
+                    <span>Daily hours</span>
+                    <span>{formatShortDate(range.to)}</span>
+                  </div>
+                </>
+              ) : (
+                <p className="py-8 text-center text-sm text-blue-light">
+                  A single day — pick a wider range to see the trend.
+                </p>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted">
-              vs {toHours(data.prevMin)}h {rangeLabel}
-            </p>
           </div>
-          <div className="card p-4" data-test-id="kpi-entries">
-            <p className="text-xs font-medium text-muted">Entries</p>
-            <span className="mt-1 block text-2xl font-bold text-navy">{data.total}</span>
-            <p className="mt-1 text-xs text-muted">in range</p>
+
+          {/* Metric rail */}
+          <div className="mt-6 grid grid-cols-2 gap-4 border-t border-white/15 pt-5 sm:grid-cols-4">
+            <HeroStat
+              value={
+                <>
+                  {data.activeDays}
+                  <span className="text-sm font-medium text-blue-light">/{data.rangeDays}</span>
+                </>
+              }
+              label="Active days"
+            />
+            <HeroStat value={`${toHours(data.avgActive)}h`} label="Avg / active day" />
+            <HeroStat value={data.total} label="Entries" testId="kpi-entries" />
+            <HeroStat
+              value={
+                <span data-test-id="kpi-done">
+                  {donePct}
+                  <span className="text-sm font-medium text-blue-light">%</span>
+                </span>
+              }
+              label="Completed"
+            />
           </div>
-          <div className="card p-4" data-test-id="kpi-done">
-            <p className="text-xs font-medium text-muted">Completed</p>
-            <span className="mt-1 block text-2xl font-bold text-navy">
-              {data.done}
-              <span className="text-base font-medium text-muted">/{data.total}</span>
-            </span>
-            <p className="mt-1 text-xs text-muted">{donePct}% marked done</p>
-          </div>
-        </div>
+        </section>
 
         {data.total === 0 ? (
           <div className="card flex flex-col items-center gap-3 p-10 text-center">
             <TrendingUp size={32} className="text-blue-light" />
             <p className="text-sm font-medium text-ink">Nothing logged in this range</p>
             <p className="max-w-xs text-sm text-muted">
-              Pick a different range or log some entries.
+              Pick a different range, or head back and log some work.
             </p>
             <Link
               href="/dashboard"
@@ -246,66 +385,46 @@ export default function InsightsPage() {
           </div>
         ) : (
           <>
-            {/* Daily hours trend */}
-            <div className="card p-5">
-              <h2 className="mb-4 text-sm font-bold text-navy">Daily hours</h2>
-              {n >= 2 ? (
-                <svg
-                  viewBox="0 0 100 40"
-                  preserveAspectRatio="none"
-                  className="h-32 w-full"
-                  role="img"
-                  aria-label="Daily hours trend"
-                >
-                  <polyline
-                    points={`0,40 ${linePts.join(" ")} 100,40`}
-                    fill="#2E7CC4"
-                    fillOpacity={0.12}
-                    stroke="none"
-                  />
-                  <polyline
-                    points={linePts.join(" ")}
-                    fill="none"
-                    stroke="#2E7CC4"
-                    strokeWidth={1.5}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
-              ) : (
-                <p className="py-6 text-center text-sm text-muted">
-                  Not enough days in this range for a trend yet.
-                </p>
-              )}
-              <div className="mt-1 flex justify-between text-[11px] text-muted">
-                <span>{formatShortDate(range.from)}</span>
-                <span>{formatShortDate(range.to)}</span>
-              </div>
-            </div>
-
             <div className="grid gap-5 lg:grid-cols-2">
-              {/* Hours per category */}
+              {/* Where the time went — category share */}
               <div className="card p-5">
-                <h2 className="mb-4 text-sm font-bold text-navy">Hours by category</h2>
-                <div className="flex flex-col gap-3">
+                <SectionTitle
+                  eyebrow={
+                    data.focus
+                      ? `${focusPct}% on ${CATEGORY_MAP[data.focus.category].label.toLowerCase()}`
+                      : undefined
+                  }
+                  title="Where your time went"
+                />
+                <div className="flex flex-col gap-3.5">
                   {data.byCategory.map((c) => {
                     const meta = CATEGORY_MAP[c.category];
+                    const pct = Math.round((c.minutes / data.thisMin) * 100);
                     return (
                       <div key={c.category}>
-                        <div className="mb-1 flex items-center justify-between text-xs">
-                          <span className="font-medium text-ink">{meta.label}</span>
-                          <span className="text-muted">{formatDuration(c.minutes)}</span>
+                        <div className="mb-1.5 flex items-center justify-between text-xs">
+                          <span className="inline-flex items-center gap-2 font-medium text-ink">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: meta.color }}
+                            />
+                            {meta.label}
+                          </span>
+                          <span className="tabular-nums text-muted">
+                            {formatDuration(c.minutes)}
+                            <span className="ml-1.5 text-hairline">·</span>
+                            <span className="ml-1.5 font-semibold text-ink">{pct}%</span>
+                          </span>
                         </div>
-                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-canvas">
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-canvas">
                           <div
-                            className="h-full rounded-full transition-all"
+                            className="h-full rounded-full transition-all duration-500"
                             style={{
                               width: `${(c.minutes / maxCat) * 100}%`,
                               backgroundColor: meta.color,
                             }}
                             role="img"
-                            aria-label={`${meta.label}: ${formatDuration(c.minutes)}`}
+                            aria-label={`${meta.label}: ${formatDuration(c.minutes)}, ${pct}%`}
                           />
                         </div>
                       </div>
@@ -314,93 +433,128 @@ export default function InsightsPage() {
                 </div>
               </div>
 
-              {/* Busiest days */}
+              {/* Weekly rhythm */}
               <div className="card p-5">
-                <h2 className="mb-4 text-sm font-bold text-navy">Busiest days</h2>
-                <div className="flex h-40 items-end justify-between gap-2">
-                  {data.byWeekday.map((min, i) => (
-                    <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
-                      <span className="text-[10px] text-muted">
-                        {min > 0 ? toHours(min) : ""}
-                      </span>
-                      <div className="flex w-full flex-1 items-end">
-                        <div
-                          className="w-full rounded-t-md transition-all"
-                          style={{
-                            height: `${Math.max(min > 0 ? 6 : 0, (min / maxDay) * 100)}%`,
-                            backgroundColor:
-                              highlightToday && i === todayIdx ? "#F37E31" : "#2E7CC4",
-                          }}
-                          role="img"
-                          aria-label={`${WEEKDAY_LABELS[i]}: ${formatDuration(min)}`}
-                        />
+                <SectionTitle
+                  eyebrow={
+                    data.busiestIdx >= 0 ? `busiest on ${WEEKDAY_LABELS[data.busiestIdx]}` : undefined
+                  }
+                  title="Weekly rhythm"
+                />
+                <div className="flex h-44 items-end justify-between gap-2">
+                  {data.byWeekday.map((min, i) => {
+                    const isToday = highlightToday && i === todayIdx;
+                    const isPeak = i === data.busiestIdx;
+                    return (
+                      <div key={i} className="flex h-full flex-1 flex-col items-center gap-1.5">
+                        <span className="text-[10px] tabular-nums text-muted">
+                          {min > 0 ? toHours(min) : ""}
+                        </span>
+                        <div className="flex w-full flex-1 items-end">
+                          <div
+                            className="w-full rounded-t-md transition-all duration-500"
+                            style={{
+                              height: `${Math.max(min > 0 ? 6 : 0, (min / maxDay) * 100)}%`,
+                              backgroundColor: isToday
+                                ? "#F37E31"
+                                : isPeak
+                                  ? "#2E7CC4"
+                                  : "#96C0E0",
+                            }}
+                            role="img"
+                            aria-label={`${WEEKDAY_LABELS[i]}: ${formatDuration(min)}`}
+                          />
+                        </div>
+                        <span
+                          className={`text-[11px] ${
+                            isToday ? "font-bold text-orange-brand" : "text-muted"
+                          }`}
+                        >
+                          {WEEKDAY_LABELS[i]}
+                        </span>
                       </div>
-                      <span
-                        className={`text-[11px] ${
-                          highlightToday && i === todayIdx
-                            ? "font-bold text-orange-brand"
-                            : "text-muted"
-                        }`}
-                      >
-                        {WEEKDAY_LABELS[i]}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-2">
-              {/* Status breakdown */}
+              {/* Progress donut */}
               <div className="card p-5">
-                <h2 className="mb-4 text-sm font-bold text-navy">Status breakdown</h2>
-                <div className="flex h-3 w-full overflow-hidden rounded-full bg-canvas">
-                  {(["progress", "hold", "done"] as EntryStatus[]).map((s) =>
-                    data.status[s] > 0 ? (
-                      <div
-                        key={s}
-                        style={{
-                          width: `${(data.status[s] / data.total) * 100}%`,
-                          backgroundColor: STATUS_COLOR[s],
-                        }}
-                        role="img"
-                        aria-label={`${STATUS_META[s].label}: ${data.status[s]}`}
+                <SectionTitle title="Progress at a glance" />
+                <div className="flex items-center gap-6">
+                  <div className="relative h-32 w-32 shrink-0">
+                    <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        stroke="rgb(var(--canvas))"
+                        strokeWidth="13"
                       />
-                    ) : null,
-                  )}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-4">
-                  {(["progress", "hold", "done"] as EntryStatus[]).map((s) => (
-                    <span
-                      key={s}
-                      className="inline-flex items-center gap-1.5 text-xs text-muted"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: STATUS_COLOR[s] }}
-                      />
-                      {STATUS_META[s].label} · {data.status[s]}
-                    </span>
-                  ))}
+                      {donut.map((seg) => (
+                        <circle
+                          key={seg.s}
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="none"
+                          stroke={STATUS_COLOR[seg.s]}
+                          strokeWidth="13"
+                          pathLength={100}
+                          strokeDasharray={`${seg.pct} ${100 - seg.pct}`}
+                          strokeDashoffset={-seg.offset}
+                        />
+                      ))}
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-bold text-navy" style={DISPLAY}>
+                        {donePct}%
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide text-muted">done</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2.5">
+                    {STATUS_ORDER.map((s) => (
+                      <div key={s} className="flex items-center justify-between text-sm">
+                        <span className="inline-flex items-center gap-2 text-ink">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: STATUS_COLOR[s] }}
+                          />
+                          {STATUS_META[s].label}
+                        </span>
+                        <span className="tabular-nums font-semibold text-navy">
+                          {data.status[s]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Top tickets by time */}
+              {/* Top tickets */}
               <div className="card p-5">
-                <h2 className="mb-4 text-sm font-bold text-navy">Top tickets by time</h2>
+                <SectionTitle title="Top tickets" />
                 {data.tickets.length === 0 ? (
-                  <p className="py-4 text-sm text-muted">No ticketed work in this range.</p>
+                  <p className="py-8 text-center text-sm text-muted">
+                    No ticketed work in this range.
+                  </p>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3.5">
                     {data.tickets.map((t) => (
                       <div key={t.ticket}>
-                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                        <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
                           <TicketPill ticketNumber={t.ticket} ticketUrl={t.url} />
-                          <span className="text-muted">{formatDuration(t.minutes)}</span>
+                          <span className="tabular-nums text-muted">
+                            {formatDuration(t.minutes)}
+                          </span>
                         </div>
-                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-canvas">
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-canvas">
                           <div
-                            className="h-full rounded-full bg-blue-brand transition-all"
+                            className="h-full rounded-full bg-blue-brand transition-all duration-500"
                             style={{ width: `${(t.minutes / maxTicket) * 100}%` }}
                           />
                         </div>
@@ -413,10 +567,10 @@ export default function InsightsPage() {
           </>
         )}
 
-        {/* Contribution heatmap (all history, last 26 weeks) */}
+        {/* Activity heatmap (all history, last 26 weeks) */}
         <div className="card p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-navy">Activity</h2>
+            <SectionTitle title="Activity" />
             <span className="text-xs text-muted">last {HEAT_WEEKS} weeks</span>
           </div>
           <div className="overflow-x-auto">
@@ -439,11 +593,9 @@ export default function InsightsPage() {
                         onMouseLeave={() => setTip(null)}
                         onFocus={(e) => !cell.future && show(e)}
                         onBlur={() => setTip(null)}
-                        className="h-[11px] w-[11px] rounded-[2px] focus-visible:ring-2 focus-visible:ring-blue-brand"
+                        className="h-[12px] w-[12px] rounded-[3px] transition-transform hover:scale-125 focus-visible:ring-2 focus-visible:ring-blue-brand"
                         style={{
-                          backgroundColor: cell.future
-                            ? "transparent"
-                            : heatColor(cell.minutes),
+                          backgroundColor: cell.future ? "transparent" : heatColor(cell.minutes),
                         }}
                       />
                     );
@@ -463,9 +615,16 @@ export default function InsightsPage() {
           )}
           <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-muted">
             <span>Less</span>
-            <span className="h-[11px] w-[11px] rounded-[2px]" style={{ backgroundColor: "rgb(var(--hairline))" }} />
+            <span
+              className="h-[12px] w-[12px] rounded-[3px]"
+              style={{ backgroundColor: "rgb(var(--hairline))" }}
+            />
             {HEAT_LEVELS.map((c) => (
-              <span key={c} className="h-[11px] w-[11px] rounded-[2px]" style={{ backgroundColor: c }} />
+              <span
+                key={c}
+                className="h-[12px] w-[12px] rounded-[3px]"
+                style={{ backgroundColor: c }}
+              />
             ))}
             <span>More</span>
           </div>
