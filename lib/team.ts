@@ -57,6 +57,42 @@ export function teamTotalMinutes(rows: TeamFeedRow[]): number {
   return rows.reduce((acc, r) => acc + (r.minutes || 0), 0);
 }
 
+export interface TeamPersonSummary {
+  id: string;
+  full_name: string;
+  email: string;
+  minutes: number;
+  entries: number;
+  done: number;
+  donePct: number;
+}
+
+/** Aggregate a feed into per-person totals, ranked by time logged. */
+export function teamByPerson(rows: TeamFeedRow[]): TeamPersonSummary[] {
+  const map = new Map<string, TeamPersonSummary>();
+  for (const r of rows) {
+    let p = map.get(r.employee.id);
+    if (!p) {
+      p = {
+        id: r.employee.id,
+        full_name: r.employee.full_name,
+        email: r.employee.email,
+        minutes: 0,
+        entries: 0,
+        done: 0,
+        donePct: 0,
+      };
+      map.set(r.employee.id, p);
+    }
+    p.minutes += r.minutes || 0;
+    p.entries += 1;
+    if (r.status === "done") p.done += 1;
+  }
+  const list = [...map.values()];
+  for (const p of list) p.donePct = p.entries ? Math.round((p.done / p.entries) * 100) : 0;
+  return list.sort((a, b) => b.minutes - a.minutes);
+}
+
 export interface TeamDayGroup {
   date: string;
   rows: TeamFeedRow[];

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { ArrowUp, ArrowDown, Flame, ArrowRight } from "lucide-react";
+import { ArrowUp, ArrowDown, Flame, ArrowRight, Target } from "lucide-react";
 import type { Entry } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/constants";
 import { inRange, sumMinutes } from "@/lib/entries";
@@ -15,7 +15,62 @@ import {
   percentChange,
   previousPeriod,
 } from "@/lib/insights";
+import { goalProgress } from "@/lib/weekly";
+import { useWeeklyGoal } from "@/hooks/useWeeklyGoal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TicketPill } from "./TicketPill";
+
+const GOAL_PRESETS = [10, 20, 30, 40];
+
+function GoalControl({
+  goalHours,
+  onChange,
+}: {
+  goalHours: number;
+  onChange: (h: number) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-test-id="weekly-goal-edit"
+          className="text-xs font-semibold text-blue-brand hover:underline"
+        >
+          {goalHours > 0 ? `${goalHours}h ▾` : "Set a goal"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-48">
+        <p className="mb-2 text-xs font-medium text-muted">Weekly goal (hours)</p>
+        <div className="grid grid-cols-4 gap-1">
+          {GOAL_PRESETS.map((h) => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => onChange(h)}
+              className={`rounded-lg py-1.5 text-xs font-medium transition-colors ${
+                goalHours === h
+                  ? "bg-blue-brand text-white"
+                  : "bg-canvas text-ink hover:bg-blue-brand/10"
+              }`}
+            >
+              {h}h
+            </button>
+          ))}
+        </div>
+        {goalHours > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange(0)}
+            className="mt-2 w-full rounded-lg py-1 text-xs text-muted hover:text-orange-brand"
+          >
+            Turn off
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /** Desktop-only right rail: at-a-glance weekly stats (fills the side space). */
 export function DashboardInsightsRail({ entries }: { entries: Entry[] }) {
@@ -37,6 +92,8 @@ export function DashboardInsightsRail({ entries }: { entries: Entry[] }) {
     };
   }, [entries]);
 
+  const { goalHours, setGoalHours } = useWeeklyGoal();
+  const gp = goalProgress(d.thisMin, goalHours);
   const maxCat = Math.max(1, ...d.byCat.map((c) => c.minutes));
   const maxTicket = Math.max(1, ...d.tickets.map((t) => t.minutes));
 
@@ -66,6 +123,37 @@ export function DashboardInsightsRail({ entries }: { entries: Entry[] }) {
         <p className="mt-1 text-xs text-muted">
           {d.count} {d.count === 1 ? "entry" : "entries"} · vs {toHours(d.prevMin)}h last week
         </p>
+
+        <div className="mt-3 border-t border-hairline pt-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-ink">
+              <Target size={12} className="text-blue-brand" /> Weekly goal
+            </span>
+            <GoalControl goalHours={goalHours} onChange={setGoalHours} />
+          </div>
+          {goalHours > 0 ? (
+            <>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-canvas">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${gp.pct}%`,
+                    backgroundColor: gp.met ? "#1f8a4c" : "#2E7CC4",
+                  }}
+                  role="img"
+                  aria-label={`Weekly goal ${gp.pct}% complete`}
+                />
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                {gp.met
+                  ? `Goal met — ${toHours(d.thisMin)}h logged 🎉`
+                  : `${toHours(d.thisMin)}h of ${goalHours}h · ${toHours(gp.remainingMinutes)}h to go`}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-muted">Set a target to track your week.</p>
+          )}
+        </div>
       </div>
 
       {d.byCat.length > 0 && (

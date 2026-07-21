@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { RequireRole } from "@/components/RequireRole";
 import { TeamFeedRow } from "@/components/team/TeamFeedRow";
 import { TeamExportMenu } from "@/components/team/TeamExportMenu";
+import { TeamSummary } from "@/components/team/TeamSummary";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import {
@@ -43,6 +44,7 @@ function TeamFeed() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category | "all">("all");
   const [status, setStatus] = useState<EntryStatus | "all">("all");
+  const [mode, setMode] = useState<"feed" | "summary">("feed");
 
   useEffect(() => {
     if (!user) return;
@@ -123,7 +125,29 @@ function TeamFeed() {
             — entries belong to their owners.
           </p>
         </div>
-        <TeamExportMenu rows={filtered} meta={exportMeta} />
+        <div className="flex items-center gap-2">
+          <div
+            className="flex rounded-xl border border-hairline bg-card p-1"
+            role="group"
+            aria-label="View mode"
+          >
+            {(["feed", "summary"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                data-test-id={`team-mode-${m}`}
+                aria-pressed={mode === m}
+                onClick={() => setMode(m)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                  mode === m ? "bg-blue-brand text-white shadow-sm" : "text-muted hover:text-navy"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <TeamExportMenu rows={filtered} meta={exportMeta} />
+        </div>
       </div>
 
       {/* Filters */}
@@ -225,6 +249,8 @@ function TeamFeed() {
           <div className="flex items-center justify-center gap-2 py-16 text-muted">
             <Loader2 size={18} className="animate-spin" /> Loading team activity…
           </div>
+        ) : mode === "summary" ? (
+          <TeamSummary rows={filtered} />
         ) : filtered.length === 0 ? (
           <div className="card flex flex-col items-center gap-2 py-14 text-center">
             <Users size={28} className="text-muted" />

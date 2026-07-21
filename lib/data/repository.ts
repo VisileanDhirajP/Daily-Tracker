@@ -1,4 +1,13 @@
-import type { AuthUser, Entry, EntryInput, Profile, TeamFeedRow, UserRole } from "../types";
+import type {
+  AuthUser,
+  Entry,
+  EntryInput,
+  EntryTemplate,
+  Profile,
+  TeamFeedRow,
+  TemplateInput,
+  UserRole,
+} from "../types";
 
 /**
  * Storage-agnostic data access. Two implementations exist — a localStorage mock
@@ -38,4 +47,9 @@ export interface DataRepository {
   setUserRole(targetUserId: string, role: UserRole): Promise<Profile>;
   /** Assign a user's manager(s) (admin only; enforced by RLS + trigger). */
   setUserManagers(targetUserId: string, managerEmails: string[]): Promise<Profile>;
+
+  // --- Entry templates (one-tap logging) -----------------------------------
+  listTemplates(userId: string): Promise<EntryTemplate[]>;
+  createTemplate(userId: string, input: TemplateInput): Promise<EntryTemplate>;
+  deleteTemplate(userId: string, id: string): Promise<void>;
 }

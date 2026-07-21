@@ -4,6 +4,7 @@ import {
   filterTeamFeed,
   teamTotalMinutes,
   groupTeamFeedByDay,
+  teamByPerson,
 } from "../team";
 import type { TeamFeedRow } from "../types";
 
@@ -98,6 +99,26 @@ describe("teamTotalMinutes", () => {
         row({ empId: "u2", empName: "B", minutes: 30 }),
       ]),
     ).toBe(90);
+  });
+});
+
+describe("teamByPerson", () => {
+  it("aggregates per person (minutes, entries, done%) ranked by time", () => {
+    const rows = [
+      row({ empId: "u1", empName: "Alice", minutes: 60, status: "done" }),
+      row({ empId: "u1", empName: "Alice", minutes: 30, status: "progress" }),
+      row({ empId: "u2", empName: "Bob", minutes: 120, status: "done" }),
+    ];
+    const summary = teamByPerson(rows);
+    expect(summary.map((p) => p.full_name)).toEqual(["Bob", "Alice"]); // 120 > 90
+    const alice = summary.find((p) => p.id === "u1")!;
+    expect(alice).toMatchObject({ minutes: 90, entries: 2, done: 1, donePct: 50 });
+    const bob = summary.find((p) => p.id === "u2")!;
+    expect(bob).toMatchObject({ minutes: 120, entries: 1, done: 1, donePct: 100 });
+  });
+
+  it("returns [] for an empty feed", () => {
+    expect(teamByPerson([])).toEqual([]);
   });
 });
 

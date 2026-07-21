@@ -53,6 +53,31 @@ export interface AuthUser {
   full_name: string;
 }
 
+/** A saved preset for one-tap logging of routine work (standup, 1:1, …). */
+export interface EntryTemplate {
+  id: string;
+  user_id: string;
+  label: string;
+  task: string;
+  category: Category;
+  minutes: number;
+  ticket_number: string | null;
+  ticket_url: string | null;
+  status: EntryStatus;
+  created_at: string;
+}
+
+/** Payload for creating a template (server fields omitted). */
+export interface TemplateInput {
+  label: string;
+  task: string;
+  category: Category;
+  minutes: number;
+  ticket_number: string | null;
+  ticket_url: string | null;
+  status: EntryStatus;
+}
+
 /**
  * An entry enriched with its author's identity, for the manager team feed.
  * Managers see entries across several people, so each row must name its owner.

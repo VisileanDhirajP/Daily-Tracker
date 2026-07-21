@@ -3,8 +3,10 @@ import type {
   AuthUser,
   Entry,
   EntryInput,
+  EntryTemplate,
   Profile,
   TeamFeedRow,
+  TemplateInput,
   UserRole,
 } from "../types";
 import { createClient } from "../supabase/client";
@@ -157,5 +159,37 @@ export const supabaseRepository: DataRepository = {
       .single();
     if (error) throw error;
     return data as Profile;
+  },
+
+  async listTemplates(userId: string): Promise<EntryTemplate[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("entry_templates")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as EntryTemplate[];
+  },
+
+  async createTemplate(userId: string, input: TemplateInput): Promise<EntryTemplate> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("entry_templates")
+      .insert({ ...input, user_id: userId })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as EntryTemplate;
+  },
+
+  async deleteTemplate(userId: string, id: string): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("entry_templates")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (error) throw error;
   },
 };

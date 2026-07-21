@@ -13,8 +13,9 @@ import {
   LayoutGrid,
   Rows3,
 } from "lucide-react";
-import type { Entry, EntryInput, EntryStatus } from "@/lib/types";
+import type { Entry, EntryInput, EntryStatus, EntryTemplate } from "@/lib/types";
 import { useEntries } from "@/hooks/useEntries";
+import { useTemplates } from "@/hooks/useTemplates";
 import { useToast } from "@/components/ui/ToastProvider";
 import { EMPTY_FILTERS, filterEntries, type EntryFilters } from "@/lib/entries";
 import { STATUS_META, STATUS_ORDER } from "@/lib/constants";
@@ -24,6 +25,9 @@ import { DayNavigator } from "@/components/dashboard/DayNavigator";
 import { EntryForm } from "@/components/dashboard/EntryForm";
 import { EntryList } from "@/components/dashboard/EntryList";
 import { Filters } from "@/components/dashboard/Filters";
+import { TemplatesBar } from "@/components/dashboard/TemplatesBar";
+import { QuickAdd } from "@/components/dashboard/QuickAdd";
+import { WeeklyReviewNudge } from "@/components/dashboard/WeeklyReviewNudge";
 import { DashboardInsightsRail } from "@/components/dashboard/DashboardInsightsRail";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -50,6 +54,12 @@ export default function DashboardPage() {
     removeMany,
     patchMany,
   } = useEntries();
+  const {
+    templates,
+    loading: templatesLoading,
+    addTemplate,
+    removeTemplate,
+  } = useTemplates();
   const { toast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
@@ -226,6 +236,32 @@ export default function DashboardPage() {
     }
   };
 
+  const logTemplate = async (t: EntryTemplate) => {
+    try {
+      await addEntry({
+        entry_date: selectedDate,
+        task: t.task,
+        category: t.category,
+        ticket_number: t.ticket_number,
+        ticket_url: t.ticket_url,
+        minutes: t.minutes,
+        status: t.status,
+      });
+      toast(`Logged "${t.label}" to ${formatShortDate(selectedDate)}.`, "success");
+    } catch {
+      toast("Couldn't log that template.", "error");
+    }
+  };
+
+  const quickAdd = async (input: EntryInput) => {
+    try {
+      await addEntry(input);
+      toast("Entry added.", "success");
+    } catch {
+      toast("Couldn't add the entry.", "error");
+    }
+  };
+
   const bulkMoveDay = async (date: string) => {
     const ids = [...selectedIds];
     try {
@@ -241,6 +277,7 @@ export default function DashboardPage() {
     <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-6">
       <div className="flex gap-6">
         <div className="min-w-0 flex-1">
+      <WeeklyReviewNudge entries={entries} />
       <HeaderStats entries={entries} selectedDate={selectedDate} />
 
       {/* Toolbar: day navigation on the left, primary action on the right. */}
@@ -259,6 +296,18 @@ export default function DashboardPage() {
           <Plus size={16} />
           Add entry
         </Button>
+      </div>
+
+      {/* Quick capture: type-to-log bar + one-tap templates */}
+      <div className="mt-4">
+        <QuickAdd selectedDate={selectedDate} onAdd={quickAdd} />
+        <TemplatesBar
+          templates={templates}
+          loading={templatesLoading}
+          onLog={logTemplate}
+          onAdd={addTemplate}
+          onRemove={removeTemplate}
+        />
       </div>
 
       {/* Entries */}

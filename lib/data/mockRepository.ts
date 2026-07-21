@@ -1,9 +1,19 @@
 import type { DataRepository } from "./repository";
-import type { AuthUser, Entry, EntryInput, Profile, TeamFeedRow, UserRole } from "../types";
+import type {
+  AuthUser,
+  Entry,
+  EntryInput,
+  EntryTemplate,
+  Profile,
+  TeamFeedRow,
+  TemplateInput,
+  UserRole,
+} from "../types";
 import { buildSeedEntries } from "./seed";
 
 const ENTRIES_KEY = (uid: string) => `vldt:entries:${uid}`;
 const PROFILES_KEY = "vldt:profiles"; // single map: { [userId]: Profile }
+const TEMPLATES_KEY = (uid: string) => `vldt:templates:${uid}`;
 
 /** In-memory fallback when localStorage is unavailable (SSR / tests). */
 const memory = new Map<string, string>();
@@ -202,5 +212,33 @@ export const mockRepository: DataRepository = {
     map[targetUserId] = next;
     saveProfiles(map);
     return next;
+  },
+
+  async listTemplates(userId: string): Promise<EntryTemplate[]> {
+    const raw = read(TEMPLATES_KEY(userId));
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as EntryTemplate[]) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async createTemplate(userId: string, input: TemplateInput): Promise<EntryTemplate> {
+    const list = await this.listTemplates(userId);
+    const template: EntryTemplate = {
+      id: newId(),
+      user_id: userId,
+      created_at: isoNow(),
+      ...input,
+    };
+    write(TEMPLATES_KEY(userId), JSON.stringify([...list, template]));
+    return template;
+  },
+
+  async deleteTemplate(userId: string, id: string): Promise<void> {
+    const list = await this.listTemplates(userId);
+    write(TEMPLATES_KEY(userId), JSON.stringify(list.filter((t) => t.id !== id)));
   },
 };
