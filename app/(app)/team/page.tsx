@@ -231,7 +231,7 @@ function TeamFeed() {
             <p className="text-sm font-medium text-ink">Nothing to show</p>
             <p className="max-w-sm text-sm text-muted">
               {rows.length === 0
-                ? "No one lists you as their manager yet. Ask your team to add your email under Settings → Managers."
+                ? "No one reports to you yet. Ask an admin to assign team members to you on the Admin page."
                 : "No entries match these filters. Try widening the date range."}
             </p>
           </div>

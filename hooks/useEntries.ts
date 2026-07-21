@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Entry, EntryInput } from "@/lib/types";
 import { repository } from "@/lib/data";
 import { sortEntries, toEntryInput } from "@/lib/entries";
@@ -35,6 +35,12 @@ export function useEntries(): UseEntriesResult {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Mirror of `entries` for synchronous reads inside async mutations (a state
+  // updater's `prev` isn't available synchronously at the call site).
+  const entriesRef = useRef<Entry[]>([]);
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   const refresh = useCallback(async () => {
     if (!userId) {
@@ -144,11 +150,8 @@ export function useEntries(): UseEntriesResult {
       if (!userId || ids.length === 0) return;
       setError(null);
       const idSet = new Set(ids);
-      let snapshot: Entry[] = [];
-      setEntries((prev) => {
-        snapshot = prev;
-        return prev.filter((e) => !idSet.has(e.id));
-      });
+      const snapshot = entriesRef.current;
+      setEntries((prev) => prev.filter((e) => !idSet.has(e.id)));
       // Settle every delete independently so a partial failure doesn't roll
       // back the ones that already committed server-side.
       const results = await Promise.allSettled(
@@ -173,13 +176,14 @@ export function useEntries(): UseEntriesResult {
       setError(null);
       const idSet = new Set(ids);
       const now = new Date().toISOString();
-      let snapshot: Entry[] = [];
-      setEntries((prev) => {
-        snapshot = prev;
-        return sortEntries(
+      // Read the base rows synchronously from the ref — the setEntries updater
+      // below runs later, so its `prev` can't build the server payloads in time.
+      const snapshot = entriesRef.current;
+      setEntries((prev) =>
+        sortEntries(
           prev.map((e) => (idSet.has(e.id) ? { ...e, ...patch, updated_at: now } : e)),
-        );
-      });
+        ),
+      );
       const results = await Promise.allSettled(
         ids.map((id) => {
           const e = snapshot.find((x) => x.id === id);

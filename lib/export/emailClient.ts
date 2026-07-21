@@ -75,8 +75,16 @@ export async function sendReportEmail(params: {
     });
     if (res.status === 501) return { sent: false, reason: "not-configured" };
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return { sent: false, reason: "error", message: text || `HTTP ${res.status}` };
+      // Prefer the API's { error } message; fall back to a clean status string
+      // rather than dumping the raw JSON body into a toast.
+      let message = `Couldn't send the report (error ${res.status}).`;
+      try {
+        const j = (await res.json()) as { error?: string };
+        if (j?.error) message = j.error;
+      } catch {
+        /* keep the fallback */
+      }
+      return { sent: false, reason: "error", message };
     }
     return { sent: true };
   } catch (e) {

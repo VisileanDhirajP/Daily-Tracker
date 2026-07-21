@@ -47,6 +47,17 @@ export function ManagerEmailsEditor({
 
   const remove = (email: string) => onChange(value.filter((e) => e !== email));
 
+  // Auto-commit a valid, non-duplicate draft when the field loses focus, so a
+  // typed-but-not-"Add"ed email isn't silently lost when the user clicks Save.
+  const commitOnBlur = () => {
+    const email = draft.trim();
+    if (email && EMAIL_RE.test(email) && !value.some((e) => e.toLowerCase() === email.toLowerCase())) {
+      onChange([...value, email]);
+      setDraft("");
+      setError(null);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor="manager-email-input" className="text-sm font-medium text-ink">
@@ -94,6 +105,7 @@ export function ManagerEmailsEditor({
                 add();
               }
             }}
+            onBlur={commitOnBlur}
             placeholder="manager@visilean.com"
             aria-invalid={error ? true : undefined}
           />

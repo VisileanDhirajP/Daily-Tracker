@@ -100,15 +100,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         : null;
 
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(mapUser(data.user));
+    // Keep the user object stable across token refreshes / tab-refocus events:
+    // only replace it when the identity actually changes. Otherwise a new object
+    // each SIGNED_IN/TOKEN_REFRESHED would re-run the role fetch and flash the
+    // RequireRole spinner (resetting filter state on /team and /admin).
+    const applyUser = (raw: Parameters<typeof mapUser>[0]) => {
+      const next = mapUser(raw);
+      setUser((prev) =>
+        prev && next && prev.id === next.id && prev.email === next.email && prev.full_name === next.full_name
+          ? prev
+          : next,
+      );
       setLoading(false);
-    });
+    };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(mapUser(session?.user ?? null));
-      setLoading(false);
-    });
+    supabase.auth.getUser().then(({ data }) => applyUser(data.user));
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) =>
+      applyUser(session?.user ?? null),
+    );
 
     return () => sub.subscription.unsubscribe();
   }, []);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
@@ -10,7 +11,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { scorePassword } from "@/lib/auth/password";
 
 export default function ResetPasswordPage() {
-  const { updatePassword, isMock } = useAuth();
+  const { updatePassword, isMock, user, loading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -29,19 +30,53 @@ export default function ResetPasswordPage() {
     setSubmitting(true);
     try {
       await updatePassword(password);
-      // In mock mode updatePassword is a no-op, so don't claim it was saved.
       if (isMock) {
+        // In mock mode updatePassword is a no-op, so don't claim it was saved.
         toast("Demo mode — password changes aren't saved.", "info");
+        router.replace("/login");
       } else {
-        toast("Password updated. Please sign in.", "success");
+        // The recovery link already established a live session, so the user is
+        // signed in — take them straight in rather than bouncing via /login.
+        toast("Password updated.", "success");
+        router.replace("/dashboard");
       }
-      router.replace("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update password.");
     } finally {
       setSubmitting(false);
     }
   };
+
+  // In Supabase mode the reset link must establish a recovery session. While it
+  // resolves, show a spinner; if there's no session (expired / already-used /
+  // opened on a different device), guide the user to request a fresh link.
+  if (!isMock && loading) {
+    return (
+      <AuthShell title="Set a new password">
+        <div className="flex items-center justify-center gap-2 py-8 text-muted">
+          <Loader2 size={18} className="animate-spin" /> Checking your link…
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (!isMock && !user) {
+    return (
+      <AuthShell title="Reset link expired">
+        <p className="text-sm text-muted">
+          This password reset link is invalid or has already been used. Request a
+          new one and we&apos;ll email you a fresh link.
+        </p>
+        <Link
+          href="/forgot-password"
+          className="btn-cta mt-4 inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm"
+          data-test-id="request-new-link"
+        >
+          Request a new link
+        </Link>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell title="Set a new password" subtitle="Choose something strong.">

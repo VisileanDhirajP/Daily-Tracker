@@ -115,7 +115,12 @@ export default function InsightsPage() {
         : rangeKey === "month"
           ? (() => {
               const from = shiftMonths(range.from, -1);
-              return { from, to: shiftDay(from, dayDiff(range.to, range.from)) };
+              // Same number of days, but never spill past the end of the prev
+              // month (would overlap the current range when this month is
+              // longer, e.g. Mar 1–30 vs a clamped Feb 1–28).
+              const endOfPrevMonth = shiftDay(range.from, -1);
+              const sameLenTo = shiftDay(from, dayDiff(range.to, range.from));
+              return { from, to: sameLenTo < endOfPrevMonth ? sameLenTo : endOfPrevMonth };
             })()
           : previousPeriod(range.from, range.to);
     const prevScoped = inRange(entries, prev.from, prev.to);

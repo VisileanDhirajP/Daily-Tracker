@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 
 export default function ExportPage() {
-  const { entries } = useEntries();
+  const { entries, loading } = useEntries();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -46,8 +46,10 @@ export default function ExportPage() {
     repository
       .getProfile(user.id)
       .then((p) => setManagerEmails(p?.manager_emails ?? []))
-      .catch(() => undefined);
-  }, [user]);
+      .catch(() =>
+        toast("Couldn't load your manager — retry before sending.", "error"),
+      );
+  }, [user, toast]);
 
   const range = useMemo(
     () => resolveRange(rangeKey, { from: customFrom, to: customTo }),
@@ -123,7 +125,7 @@ export default function ExportPage() {
   const handleSend = async () => {
     if (model.entryCount === 0) return toast("Nothing to send in this range.", "info");
     if (managerEmails.length === 0) {
-      toast("Add a manager in Settings first.", "info");
+      toast("No manager assigned yet — ask your admin to assign one.", "info");
       return;
     }
     setBusy("send");
@@ -251,7 +253,7 @@ export default function ExportPage() {
               <Button
                 variant="cta"
                 onClick={handlePdf}
-                disabled={busy !== null}
+                disabled={busy !== null || loading}
                 data-test-id="download-pdf"
               >
                 {busy === "pdf" ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
@@ -260,7 +262,7 @@ export default function ExportPage() {
               <Button
                 variant="outline"
                 onClick={handleCsv}
-                disabled={busy !== null}
+                disabled={busy !== null || loading}
                 data-test-id="download-csv"
               >
                 {busy === "csv" ? <Loader2 size={16} className="animate-spin" /> : <Sheet size={16} />}
@@ -269,7 +271,7 @@ export default function ExportPage() {
               <Button
                 variant="outline"
                 onClick={handleSend}
-                disabled={busy !== null}
+                disabled={busy !== null || loading}
                 data-test-id="send-manager"
                 className="border-blue-brand text-blue-brand hover:bg-blue-brand/10"
               >
@@ -284,7 +286,7 @@ export default function ExportPage() {
                   {managerEmails.join(", ")}
                 </>
               ) : (
-                <>No managers set — add one in Settings.</>
+                <>No manager assigned yet — ask your admin.</>
               )}
             </p>
           </div>

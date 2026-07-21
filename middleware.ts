@@ -3,7 +3,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
-const PROTECTED = ["/dashboard", "/export", "/settings"];
+const PROTECTED = ["/dashboard", "/insights", "/export", "/team", "/admin", "/settings"];
 
 /**
  * Supabase-mode only: refresh the auth session cookie on each request and
