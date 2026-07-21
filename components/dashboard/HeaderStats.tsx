@@ -9,9 +9,11 @@ import { calcStreak } from "@/lib/format/streak";
 interface HeaderStatsProps {
   entries: Entry[];
   selectedDate: string;
+  /** Stack the three cards vertically for a narrow container (side rail). */
+  stacked?: boolean;
 }
 
-export function HeaderStats({ entries, selectedDate }: HeaderStatsProps) {
+export function HeaderStats({ entries, selectedDate, stacked = false }: HeaderStatsProps) {
   const { count, minutes, streak } = useMemo(() => {
     const dayEntries = entries.filter((e) => e.entry_date === selectedDate);
     return {
@@ -33,7 +35,7 @@ export function HeaderStats({ entries, selectedDate }: HeaderStatsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className={`grid gap-3 ${stacked ? "grid-cols-1" : "grid-cols-3"}`}>
       {stats.map((s) => {
         const Icon = s.icon;
         return (

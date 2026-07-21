@@ -4,6 +4,7 @@ import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { POPUP_MOTION } from "@/lib/motion";
 
 export const Select = SelectPrimitive.Root;
 export const SelectGroup = SelectPrimitive.Group;
@@ -38,7 +39,8 @@ export const SelectContent = React.forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "relative z-50 max-h-72 min-w-[8rem] overflow-hidden rounded-xl border border-hairline bg-card text-ink shadow-card data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+        "relative z-50 max-h-72 min-w-[8rem] overflow-hidden rounded-xl border border-hairline bg-card text-ink shadow-card",
+        POPUP_MOTION,
         position === "popper" && "translate-y-1",
         className,
       )}

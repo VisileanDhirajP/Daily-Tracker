@@ -10,6 +10,8 @@ interface DayNavigatorProps {
   onChange: (iso: string) => void;
   /** Disable the global ←/→ shortcut (e.g. while a modal/dialog is open). */
   shortcutsEnabled?: boolean;
+  /** Tighten spacing + let the date picker flex to fit a narrow container. */
+  compact?: boolean;
 }
 
 /**
@@ -20,6 +22,7 @@ export function DayNavigator({
   value,
   onChange,
   shortcutsEnabled = true,
+  compact = false,
 }: DayNavigatorProps) {
   useEffect(() => {
     if (!shortcutsEnabled) return;
@@ -49,28 +52,30 @@ export function DayNavigator({
   const isToday = value === todayISO();
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center ${compact ? "w-full gap-1.5" : "gap-2"}`}>
       <button
         type="button"
         onClick={() => onChange(shiftDay(value, -1))}
         aria-label="Previous day"
         data-test-id="day-prev"
-        className="rounded-lg border border-hairline p-2 text-muted hover:bg-canvas hover:text-navy"
+        className="shrink-0 rounded-lg border border-hairline p-2 text-muted hover:bg-canvas hover:text-navy"
       >
         <ChevronLeft size={16} />
       </button>
 
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${compact ? "min-w-0 flex-1" : ""}`}>
         <DatePicker
           value={value}
           onChange={(iso) => iso && onChange(iso)}
           testId="day-picker"
           ariaLabel="Selected day"
-          className="w-40"
+          className={compact ? "w-full" : "w-40"}
         />
-        <span className="hidden whitespace-nowrap text-xs font-medium text-blue-brand sm:inline">
-          {relativeLabel(value)}
-        </span>
+        {!compact && (
+          <span className="hidden whitespace-nowrap text-xs font-medium text-blue-brand sm:inline">
+            {relativeLabel(value)}
+          </span>
+        )}
       </div>
 
       <button
@@ -78,7 +83,7 @@ export function DayNavigator({
         onClick={() => onChange(shiftDay(value, 1))}
         aria-label="Next day"
         data-test-id="day-next"
-        className="rounded-lg border border-hairline p-2 text-muted hover:bg-canvas hover:text-navy"
+        className="shrink-0 rounded-lg border border-hairline p-2 text-muted hover:bg-canvas hover:text-navy"
       >
         <ChevronRight size={16} />
       </button>
@@ -88,7 +93,7 @@ export function DayNavigator({
         onClick={() => onChange(todayISO())}
         disabled={isToday}
         data-test-id="day-today"
-        className="rounded-lg border border-hairline px-3 py-2 text-sm font-medium text-navy hover:bg-canvas disabled:opacity-50"
+        className="shrink-0 rounded-lg border border-hairline px-3 py-2 text-sm font-medium text-navy hover:bg-canvas disabled:opacity-50"
       >
         Today
       </button>

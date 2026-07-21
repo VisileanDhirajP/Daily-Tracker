@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AppHeader } from "@/components/AppHeader";
 import { AppSidebar } from "@/components/AppSidebar";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   return (
@@ -16,6 +17,7 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+      <CommandPalette />
     </RequireAuth>
   );
 }

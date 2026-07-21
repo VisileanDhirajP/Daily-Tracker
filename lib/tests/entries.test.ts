@@ -6,6 +6,8 @@ import {
   inRange,
   uniqueDates,
   usedCategories,
+  entriesOn,
+  lastLoggedDayBefore,
   EMPTY_FILTERS,
 } from "../entries";
 import type { Entry } from "../types";
@@ -87,5 +89,23 @@ describe("entries derivation", () => {
   it("scopes entries to an inclusive date range", () => {
     const scoped = inRange(data, "2026-07-15", "2026-07-16");
     expect(scoped.map((e) => e.id).sort()).toEqual(["b", "c"]);
+  });
+
+  it("returns entries logged on a given day", () => {
+    expect(entriesOn(data, "2026-07-16").map((e) => e.id).sort()).toEqual(["b", "c"]);
+    expect(entriesOn(data, "2026-07-15")).toEqual([]);
+  });
+
+  describe("lastLoggedDayBefore", () => {
+    it("finds the most recent earlier day that has entries", () => {
+      expect(lastLoggedDayBefore(data, "2026-07-17")).toBe("2026-07-16");
+      expect(lastLoggedDayBefore(data, "2026-07-16")).toBe("2026-07-14"); // strictly before
+      expect(lastLoggedDayBefore(data, "2026-07-15")).toBe("2026-07-14");
+    });
+
+    it("returns null when nothing is earlier", () => {
+      expect(lastLoggedDayBefore(data, "2026-07-14")).toBeNull();
+      expect(lastLoggedDayBefore([], "2026-07-20")).toBeNull();
+    });
   });
 });

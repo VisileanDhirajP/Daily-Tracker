@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useToast } from "@/components/ui/ToastProvider";
 import { navItems } from "@/lib/nav";
+import { OPEN_PALETTE_EVENT } from "@/components/CommandPalette";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Wordmark } from "./brand/Wordmark";
@@ -31,6 +32,17 @@ export function AppSidebar() {
           <Wordmark onDark size="md" />
         </Link>
       </div>
+
+      <button
+        type="button"
+        data-test-id="command-palette-trigger"
+        onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+        className="mx-3 mb-2 flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-sm text-blue-light transition-colors hover:bg-white/10 hover:text-white"
+      >
+        <Search size={15} />
+        <span className="flex-1 text-left">Search…</span>
+        <kbd className="rounded border border-white/20 px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+      </button>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3" aria-label="Primary">
         {nav.map((item) => {

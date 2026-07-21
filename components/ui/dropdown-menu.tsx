@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { POPUP_MOTION } from "@/lib/motion";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
@@ -17,7 +18,8 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[9rem] overflow-hidden rounded-xl border border-hairline bg-card p-1 text-ink shadow-card data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+        "z-50 min-w-[9rem] overflow-hidden rounded-xl border border-hairline bg-card p-1 text-ink shadow-card",
+        POPUP_MOTION,
         className,
       )}
       {...props}

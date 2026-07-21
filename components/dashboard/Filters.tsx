@@ -28,9 +28,11 @@ interface FiltersProps {
   filtered: Entry[];
   filters: EntryFilters;
   onChange: (next: EntryFilters) => void;
+  /** Stack the controls for a narrow container (e.g. the dashboard side rail). */
+  dense?: boolean;
 }
 
-export function Filters({ allEntries, filtered, filters, onChange }: FiltersProps) {
+export function Filters({ allEntries, filtered, filters, onChange, dense = false }: FiltersProps) {
   const dates = useMemo(() => uniqueDates(allEntries), [allEntries]);
   const cats = useMemo(() => usedCategories(allEntries), [allEntries]);
 
@@ -67,7 +69,13 @@ export function Filters({ allEntries, filtered, filters, onChange }: FiltersProp
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        className={`grid gap-2 ${
+          dense
+            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-1"
+            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+        }`}
+      >
         <Select
           value={filters.date}
           onValueChange={(v) => onChange({ ...filters, date: v })}

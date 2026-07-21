@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useToast } from "@/components/ui/ToastProvider";
 import { navItems } from "@/lib/nav";
+import { OPEN_PALETTE_EVENT } from "@/components/CommandPalette";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Wordmark } from "./brand/Wordmark";
@@ -34,6 +35,15 @@ export function AppHeader() {
         </Link>
 
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Search"
+            data-test-id="mobile-command-trigger"
+            onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+            className="rounded-lg p-2 text-white hover:bg-white/10"
+          >
+            <Search size={20} />
+          </button>
           <ThemeToggle testId="mobile-theme-toggle" />
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>

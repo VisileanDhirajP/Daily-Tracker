@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   FileDown,
@@ -18,6 +18,8 @@ import { useEntries } from "@/hooks/useEntries";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useToast } from "@/components/ui/ToastProvider";
 import { EMPTY_FILTERS, filterEntries, type EntryFilters } from "@/lib/entries";
+import { parseQuickEntry } from "@/lib/quickAdd";
+import { subscribeAppCommand, type AppCommand } from "@/lib/commands";
 import { STATUS_META, STATUS_ORDER } from "@/lib/constants";
 import { formatShortDate, todayISO } from "@/lib/format/date";
 import { HeaderStats } from "@/components/dashboard/HeaderStats";
@@ -26,9 +28,9 @@ import { EntryForm } from "@/components/dashboard/EntryForm";
 import { EntryList } from "@/components/dashboard/EntryList";
 import { Filters } from "@/components/dashboard/Filters";
 import { TemplatesBar } from "@/components/dashboard/TemplatesBar";
-import { QuickAdd } from "@/components/dashboard/QuickAdd";
+import { CopyPreviousDay } from "@/components/dashboard/CopyPreviousDay";
+import { WeeklyGoalCard } from "@/components/dashboard/WeeklyGoalCard";
 import { WeeklyReviewNudge } from "@/components/dashboard/WeeklyReviewNudge";
-import { DashboardInsightsRail } from "@/components/dashboard/DashboardInsightsRail";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -262,6 +264,48 @@ export default function DashboardPage() {
     }
   };
 
+  const copyEntries = async (inputs: EntryInput[]) => {
+    try {
+      // Sequential keeps insertion order deterministic and avoids racing the
+      // optimistic reconcile in useEntries.
+      for (const input of inputs) {
+        await addEntry(input);
+      }
+      toast(
+        `Copied ${inputs.length} ${inputs.length === 1 ? "entry" : "entries"} to ${formatShortDate(selectedDate)}.`,
+        "success",
+      );
+    } catch {
+      toast("Couldn't copy those entries.", "error");
+    }
+  };
+
+  // Bridge for the global command palette. It navigates here and dispatches an
+  // action; we run it against the latest handlers via a ref so the one-time
+  // subscription never goes stale.
+  const commandRef = useRef<(command: AppCommand) => void>(() => {});
+  commandRef.current = (command: AppCommand) => {
+    if (command.type === "new-entry") {
+      openAdd();
+    } else if (command.type === "quick-log") {
+      const parsed = parseQuickEntry(command.text);
+      if (parsed) {
+        void quickAdd({
+          entry_date: selectedDate,
+          task: parsed.task,
+          category: parsed.category,
+          minutes: parsed.minutes,
+          ticket_number: parsed.ticket_number,
+          ticket_url: null,
+          status: parsed.status,
+        });
+      } else {
+        toast("Couldn't parse that — try adding a few words.", "error");
+      }
+    }
+  };
+  useEffect(() => subscribeAppCommand((command) => commandRef.current(command)), []);
+
   const bulkMoveDay = async (date: string) => {
     const ids = [...selectedIds];
     try {
@@ -275,157 +319,168 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-6">
-      <div className="flex gap-6">
-        <div className="min-w-0 flex-1">
       <WeeklyReviewNudge entries={entries} />
-      <HeaderStats entries={entries} selectedDate={selectedDate} />
 
-      {/* Toolbar: day navigation on the left, primary action on the right. */}
-      <div className="relative z-20 mt-5 flex flex-col gap-3 rounded-2xl border border-hairline bg-card p-3 shadow-card sm:flex-row sm:items-center sm:justify-between">
-        <DayNavigator
-          value={selectedDate}
-          onChange={setSelectedDate}
-          shortcutsEnabled={!formOpen && !pendingDelete}
-        />
-        <Button
-          variant="cta"
-          onClick={openAdd}
-          data-test-id="open-add-entry"
-          className="px-5"
-        >
-          <Plus size={16} />
-          Add entry
-        </Button>
-      </div>
+      <div className="flex flex-col gap-6 lg:flex-row">
+        {/* Capture controls + at-a-glance stats — right rail on desktop, top on mobile. */}
+        <aside className="order-1 w-full shrink-0 lg:order-2 lg:w-80">
+          <div className="flex flex-col gap-4 lg:sticky lg:top-6">
+            <HeaderStats entries={entries} selectedDate={selectedDate} stacked />
 
-      {/* Quick capture: type-to-log bar + one-tap templates */}
-      <div className="mt-4">
-        <QuickAdd selectedDate={selectedDate} onAdd={quickAdd} />
-        <TemplatesBar
-          templates={templates}
-          loading={templatesLoading}
-          onLog={logTemplate}
-          onAdd={addTemplate}
-          onRemove={removeTemplate}
-        />
-      </div>
-
-      {/* Entries */}
-      <div className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-base font-bold text-navy">All entries</h1>
-          <div className="flex items-center gap-3">
-            <div
-              className="inline-flex rounded-lg border border-hairline p-0.5"
-              role="group"
-              aria-label="List density"
-            >
-              {(
-                [
-                  { key: "cards", icon: LayoutGrid, label: "Card view" },
-                  { key: "compact", icon: Rows3, label: "Compact view" },
-                ] as const
-              ).map(({ key, icon: Icon, label }) => (
-                <Tooltip key={key} label={label}>
-                  <button
-                    type="button"
-                    onClick={() => changeView(key)}
-                    aria-pressed={view === key}
-                    aria-label={label}
-                    data-test-id={`view-${key}`}
-                    className={`rounded-md p-1.5 transition-colors ${
-                      view === key
-                        ? "bg-blue-brand/10 text-blue-brand"
-                        : "text-muted hover:text-navy"
-                    }`}
-                  >
-                    <Icon size={15} />
-                  </button>
-                </Tooltip>
-              ))}
-            </div>
-            <Link
-              href="/export"
-              data-test-id="dashboard-export-link"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-brand hover:underline"
-            >
-              <FileDown size={15} />
-              Export
-            </Link>
-          </div>
-        </div>
-
-        <Filters
-          allEntries={entries}
-          filtered={filtered}
-          filters={filters}
-          onChange={setFilters}
-        />
-
-        {/* Bulk action bar — shown while entries are selected. */}
-        {selectedCount > 0 && (
-          <div
-            className="sticky top-0 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-blue-brand/30 bg-blue-brand/10 p-2.5 backdrop-blur"
-            data-test-id="bulk-bar"
-          >
-            <span className="text-sm font-semibold text-navy">
-              {selectedCount} selected
-            </span>
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" data-test-id="bulk-status">
-                    Set status
-                    <ChevronDown size={13} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {STATUS_ORDER.map((s) => (
-                    <DropdownMenuItem
-                      key={s}
-                      data-test-id={`bulk-status-${s}`}
-                      onSelect={() => void bulkStatus(s)}
-                    >
-                      {STATUS_META[s].label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <div className="flex items-center gap-1 text-xs text-muted">
-                Move to
-                <DatePicker
-                  value=""
-                  onChange={(iso) => iso && void bulkMoveDay(iso)}
-                  testId="bulk-move-day"
-                  ariaLabel="Move selected to date"
-                  placeholder="Pick day"
-                  className="w-36"
+            <div className="card flex flex-col gap-3 p-4">
+              {/* Date drives which day new entries land on — kept with Add entry. */}
+              <div className="relative z-20">
+                <DayNavigator
+                  value={selectedDate}
+                  onChange={setSelectedDate}
+                  shortcutsEnabled={!formOpen && !pendingDelete}
+                  compact
                 />
               </div>
               <Button
-                variant="destructive"
-                size="sm"
-                onClick={bulkDelete}
-                data-test-id="bulk-delete"
+                variant="cta"
+                onClick={openAdd}
+                data-test-id="open-add-entry"
+                className="w-full"
               >
-                <Trash2 size={13} />
-                Delete
+                <Plus size={16} />
+                Add entry
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearSelection}
-                data-test-id="bulk-clear"
-                className="text-muted"
+              <CopyPreviousDay
+                entries={entries}
+                selectedDate={selectedDate}
+                onCopy={copyEntries}
+              />
+              <TemplatesBar
+                templates={templates}
+                loading={templatesLoading}
+                onLog={logTemplate}
+                onAdd={addTemplate}
+                onRemove={removeTemplate}
+              />
+            </div>
+
+            <WeeklyGoalCard entries={entries} />
+          </div>
+        </aside>
+
+        {/* Entry list */}
+        <div className="order-2 min-w-0 flex-1 lg:order-1">
+          <div className="mb-3 flex items-center justify-between">
+            <h1 className="text-base font-bold text-navy">All entries</h1>
+            <div className="flex items-center gap-3">
+              <div
+                className="inline-flex rounded-lg border border-hairline p-0.5"
+                role="group"
+                aria-label="List density"
               >
-                <X size={13} />
-                Clear
-              </Button>
+                {(
+                  [
+                    { key: "cards", icon: LayoutGrid, label: "Card view" },
+                    { key: "compact", icon: Rows3, label: "Compact view" },
+                  ] as const
+                ).map(({ key, icon: Icon, label }) => (
+                  <Tooltip key={key} label={label}>
+                    <button
+                      type="button"
+                      onClick={() => changeView(key)}
+                      aria-pressed={view === key}
+                      aria-label={label}
+                      data-test-id={`view-${key}`}
+                      className={`rounded-md p-1.5 transition-colors ${
+                        view === key
+                          ? "bg-blue-brand/10 text-blue-brand"
+                          : "text-muted hover:text-navy"
+                      }`}
+                    >
+                      <Icon size={15} />
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+              <Link
+                href="/export"
+                data-test-id="dashboard-export-link"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-brand hover:underline"
+              >
+                <FileDown size={15} />
+                Export
+              </Link>
             </div>
           </div>
-        )}
 
-        <div className="mt-5">
+          <div className="mb-4">
+            <Filters
+              allEntries={entries}
+              filtered={filtered}
+              filters={filters}
+              onChange={setFilters}
+            />
+          </div>
+
+          {/* Bulk action bar — shown while entries are selected. */}
+          {selectedCount > 0 && (
+            <div
+              className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-blue-brand/30 bg-blue-brand/10 p-2.5 backdrop-blur"
+              data-test-id="bulk-bar"
+            >
+              <span className="text-sm font-semibold text-navy">
+                {selectedCount} selected
+              </span>
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" data-test-id="bulk-status">
+                      Set status
+                      <ChevronDown size={13} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {STATUS_ORDER.map((s) => (
+                      <DropdownMenuItem
+                        key={s}
+                        data-test-id={`bulk-status-${s}`}
+                        onSelect={() => void bulkStatus(s)}
+                      >
+                        {STATUS_META[s].label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <div className="flex items-center gap-1 text-xs text-muted">
+                  Move to
+                  <DatePicker
+                    value=""
+                    onChange={(iso) => iso && void bulkMoveDay(iso)}
+                    testId="bulk-move-day"
+                    ariaLabel="Move selected to date"
+                    placeholder="Pick day"
+                    className="w-36"
+                  />
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={bulkDelete}
+                  data-test-id="bulk-delete"
+                >
+                  <Trash2 size={13} />
+                  Delete
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  data-test-id="bulk-clear"
+                  className="text-muted"
+                >
+                  <X size={13} />
+                  Clear
+                </Button>
+              </div>
+            </div>
+          )}
+
           <EntryList
             entries={filtered}
             loading={loading}
@@ -441,11 +496,6 @@ export default function DashboardPage() {
             onDelete={setPendingDelete}
           />
         </div>
-      </div>
-        </div>
-        <aside className="hidden w-80 shrink-0 lg:block">
-          <DashboardInsightsRail entries={entries} />
-        </aside>
       </div>
 
       <Modal

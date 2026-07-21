@@ -66,20 +66,39 @@ export function EntryList({
 
   if (groups.length === 0) {
     const filtering = isFilterActive(filters);
-    const Icon = filtering ? SearchX : ClipboardList;
+    if (filtering) {
+      return (
+        <div
+          className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-hairline p-10 text-center"
+          data-test-id="entries-empty"
+        >
+          <SearchX size={32} className="text-blue-light" />
+          <p className="text-sm font-medium text-ink">No entries match these filters</p>
+          <p className="max-w-xs text-sm text-muted">
+            Try clearing a filter to see more of your history.
+          </p>
+        </div>
+      );
+    }
+    // First-run: teach the quick-add syntax and the palette shortcut.
     return (
       <div
         className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-hairline p-10 text-center"
         data-test-id="entries-empty"
       >
-        <Icon size={32} className="text-blue-light" />
-        <p className="text-sm font-medium text-ink">
-          {filtering ? "No entries match these filters" : "Nothing logged yet"}
+        <ClipboardList size={32} className="text-blue-light" />
+        <p className="text-sm font-medium text-ink">Nothing logged yet</p>
+        <p className="max-w-sm text-sm text-muted">
+          Log your first task from the quick bar above — try{" "}
+          <code className="rounded bg-canvas px-1.5 py-0.5 text-xs text-ink">
+            1h dev VS-1234 fixed the leak
+          </code>{" "}
+          and press Enter.
         </p>
-        <p className="max-w-xs text-sm text-muted">
-          {filtering
-            ? "Try clearing a filter to see more of your history."
-            : "Hit the Add entry button to log your first task and start your streak."}
+        <p className="text-xs text-muted">
+          Tip: press{" "}
+          <kbd className="rounded border border-hairline px-1 py-0.5 text-[10px]">⌘K</kbd> anywhere
+          to search or log.
         </p>
       </div>
     );

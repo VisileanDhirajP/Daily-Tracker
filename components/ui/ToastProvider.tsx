@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
+import { TOAST_MOTION, TOAST_EXIT_MS } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 type ToastKind = "success" | "error" | "info";
 
@@ -27,6 +29,8 @@ interface Toast {
   kind: ToastKind;
   message: string;
   action?: ToastAction;
+  /** true once dismissed — plays the exit animation before unmounting. */
+  leaving?: boolean;
 }
 
 interface ToastContextValue {
@@ -52,9 +56,21 @@ let seq = 0;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const dismiss = useCallback((id: number) => {
+  const remove = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  // Flag the toast as leaving so its exit animation plays, then unmount it once
+  // the animation has run (idempotent — safe to call more than once).
+  const dismiss = useCallback(
+    (id: number) => {
+      setToasts((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)),
+      );
+      setTimeout(() => remove(id), TOAST_EXIT_MS);
+    },
+    [remove],
+  );
 
   const toast = useCallback(
     (message: string, kind: ToastKind = "info", options?: ToastOptions) => {
@@ -79,7 +95,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role="status"
-              className="card flex items-center gap-3 p-3 animate-slide-up"
+              data-state={t.leaving ? "closed" : "open"}
+              className={cn("card flex items-center gap-3 p-3", TOAST_MOTION)}
               data-test-id="toast"
             >
               <Icon size={18} color={ACCENT[t.kind]} className="shrink-0" />

@@ -113,3 +113,22 @@ export function filterEntries(entries: Entry[], f: EntryFilters): Entry[] {
 export function inRange(entries: Entry[], from: string, to: string): Entry[] {
   return entries.filter((e) => e.entry_date >= from && e.entry_date <= to);
 }
+
+/** Entries logged on a specific day. */
+export function entriesOn(entries: Entry[], date: string): Entry[] {
+  return entries.filter((e) => e.entry_date === date);
+}
+
+/**
+ * The most recent day strictly before `date` that has at least one entry, or
+ * null if there's nothing earlier. Powers "copy from the last day you logged".
+ */
+export function lastLoggedDayBefore(entries: Entry[], date: string): string | null {
+  let best: string | null = null;
+  for (const e of entries) {
+    if (e.entry_date < date && (best === null || e.entry_date > best)) {
+      best = e.entry_date;
+    }
+  }
+  return best;
+}
