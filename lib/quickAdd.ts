@@ -75,10 +75,13 @@ export function parseQuickEntry(raw: string): ParsedQuick | null {
       consumed.add(i);
       return;
     }
-    // category keyword (first one)
+    // category keyword (first one). Strip punctuation ("dev," → "dev") but
+    // only match purely alphabetic tokens — otherwise identifiers like "pr3"
+    // would digit-strip to "pr" and be eaten as a category, silently deleting
+    // them from the task text.
     if (categoryTokenIndex === null) {
-      const key = tok.toLowerCase().replace(/[^a-z]/g, "");
-      const cat = CATEGORY_KEYWORDS[key];
+      const key = tok.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const cat = /^[a-z]+$/.test(key) ? CATEGORY_KEYWORDS[key] : undefined;
       if (cat) {
         category = cat;
         categoryTokenIndex = i;

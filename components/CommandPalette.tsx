@@ -9,6 +9,7 @@ import {
   Plus,
   Moon,
   Zap,
+  Compass,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -109,6 +110,17 @@ export function CommandPalette() {
       label: "Toggle light / dark theme",
       icon: Moon,
       run: toggleTheme,
+    },
+    {
+      id: "start-tour",
+      group: "Actions",
+      label: "Take a tour",
+      hint: "Show the quick walkthrough",
+      icon: Compass,
+      run: () => {
+        router.push("/dashboard");
+        dispatchAppCommand({ type: "start-tour" });
+      },
     },
   ];
 

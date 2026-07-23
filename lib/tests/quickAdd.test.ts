@@ -41,6 +41,15 @@ describe("parseQuickEntry", () => {
     expect(dev).toMatchObject({ task: "dev", category: "dev", minutes: 120, ticket_number: "VS-1" });
   });
 
+  it("does not eat alphanumeric tokens that digit-strip to a keyword", () => {
+    // "pr3" must stay in the task — it is an identifier, not the "pr" keyword.
+    const p = parseQuickEntry("Left comments on pr3 45m");
+    expect(p).toMatchObject({ task: "Left comments on pr3", minutes: 45, category: "other" });
+    // Punctuation-only stripping still works: "dev," is the dev keyword.
+    const q = parseQuickEntry("2h dev, fixed the parser");
+    expect(q).toMatchObject({ task: "fixed the parser", category: "dev", minutes: 120 });
+  });
+
   it("only consumes the first category keyword and first ticket", () => {
     const p = parseQuickEntry("dev fix the meeting scheduler VS-1 VS-2");
     // "dev" -> category; "meeting" stays in the task (only first keyword eaten);

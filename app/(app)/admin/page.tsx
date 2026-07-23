@@ -141,7 +141,7 @@ function AdminPanel() {
                   return (
                     <tr
                       key={p.id}
-                      data-test-id={`admin-user-row`}
+                      data-test-id={`admin-user-row-${p.id}`}
                       className="border-b border-hairline last:border-0"
                     >
                       <td className="px-4 py-3 font-medium text-ink">
@@ -164,7 +164,7 @@ function AdminPanel() {
                             <button
                               type="button"
                               onClick={() => openManagerEditor(p)}
-                              data-test-id="admin-edit-managers"
+                              data-test-id={`admin-edit-managers-${p.id}`}
                               aria-label={`Assign managers for ${p.full_name || p.email}`}
                               className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:bg-blue-brand/10 hover:text-blue-brand"
                             >
@@ -181,7 +181,7 @@ function AdminPanel() {
                             disabled={isSelf || savingId === p.id}
                           >
                             <SelectTrigger
-                              data-test-id="admin-role-select"
+                              data-test-id={`admin-role-select-${p.id}`}
                               aria-label={`Role for ${p.full_name || p.email}`}
                               className="h-9 w-40"
                             >

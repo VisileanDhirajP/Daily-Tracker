@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowUp, ArrowDown, TrendingUp } from "lucide-react";
 import { useEntries } from "@/hooks/useEntries";
+import { dispatchAppCommand } from "@/lib/commands";
 import { CATEGORY_MAP, STATUS_META } from "@/lib/constants";
 import { inRange, sumMinutes } from "@/lib/entries";
 import { formatDuration, toHours } from "@/lib/format/time";
@@ -93,10 +95,32 @@ function SectionTitle({ eyebrow, title }: { eyebrow?: string; title: string }) {
 
 export default function InsightsPage() {
   const { entries, loading } = useEntries();
+  const router = useRouter();
   const [rangeKey, setRangeKey] = useState<RangeKey>("week");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [tip, setTip] = useState<{ x: number; y: number; label: string } | null>(null);
+  const [tip, setTip] = useState<{ x: number; y: number; date: string } | null>(null);
+
+  // Per-day entries, for the heatmap hover popover.
+  const entriesByDay = useMemo(() => {
+    const m = new Map<string, typeof entries>();
+    for (const e of entries) {
+      const list = m.get(e.entry_date);
+      if (list) list.push(e);
+      else m.set(e.entry_date, [e]);
+    }
+    return m;
+  }, [entries]);
+
+  // Clicking a chart element sends you to the dashboard, focused accordingly.
+  const openCategory = (category: (typeof entries)[number]["category"]) => {
+    dispatchAppCommand({ type: "filter-category", category });
+    router.push("/dashboard");
+  };
+  const openDay = (date: string) => {
+    dispatchAppCommand({ type: "focus-date", date });
+    router.push("/dashboard");
+  };
 
   const range = useMemo(
     () => resolveRange(rangeKey, { from: customFrom, to: customTo }),
@@ -413,7 +437,14 @@ export default function InsightsPage() {
                       ? Math.round((c.minutes / data.thisMin) * 100)
                       : 0;
                     return (
-                      <div key={c.category}>
+                      <button
+                        key={c.category}
+                        type="button"
+                        onClick={() => openCategory(c.category)}
+                        data-test-id={`insights-category-${c.category}`}
+                        title={`See ${meta.label.toLowerCase()} entries`}
+                        className="group/cat -mx-2 rounded-lg px-2 py-1 text-left transition-colors hover:bg-canvas"
+                      >
                         <div className="mb-1.5 flex items-center justify-between text-xs">
                           <span className="inline-flex items-center gap-2 font-medium text-ink">
                             <span
@@ -421,6 +452,10 @@ export default function InsightsPage() {
                               style={{ backgroundColor: meta.color }}
                             />
                             {meta.label}
+                            <ArrowRight
+                              size={11}
+                              className="text-muted opacity-0 transition-opacity group-hover/cat:opacity-100"
+                            />
                           </span>
                           <span className="tabular-nums text-muted">
                             {formatDuration(c.minutes)}
@@ -439,7 +474,7 @@ export default function InsightsPage() {
                             aria-label={`${meta.label}: ${formatDuration(c.minutes)}, ${pct}%`}
                           />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -593,19 +628,28 @@ export default function InsightsPage() {
                     const label = `${formatShortDate(cell.date)} · ${formatDuration(cell.minutes)}`;
                     const show = (e: { currentTarget: HTMLElement }) => {
                       const r = e.currentTarget.getBoundingClientRect();
-                      setTip({ x: r.left + r.width / 2, y: r.top, label });
+                      setTip({ x: r.left + r.width / 2, y: r.top, date: cell.date });
                     };
                     return (
                       <div
                         key={cell.date}
-                        role="img"
-                        aria-label={cell.future ? undefined : label}
+                        role={cell.future ? "img" : "button"}
+                        aria-label={cell.future ? undefined : `${label} — open this day`}
                         tabIndex={cell.future ? -1 : 0}
                         onMouseEnter={(e) => !cell.future && show(e)}
                         onMouseLeave={() => setTip(null)}
                         onFocus={(e) => !cell.future && show(e)}
                         onBlur={() => setTip(null)}
-                        className="h-[12px] w-[12px] rounded-[3px] transition-transform hover:scale-125 focus-visible:ring-2 focus-visible:ring-blue-brand"
+                        onClick={() => !cell.future && openDay(cell.date)}
+                        onKeyDown={(e) => {
+                          if (!cell.future && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault();
+                            openDay(cell.date);
+                          }
+                        }}
+                        className={`h-[12px] w-[12px] rounded-[3px] transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-brand ${
+                          cell.future ? "" : "cursor-pointer"
+                        }`}
                         style={{
                           backgroundColor: cell.future ? "transparent" : heatColor(cell.minutes),
                         }}
@@ -616,15 +660,52 @@ export default function InsightsPage() {
               ))}
             </div>
           </div>
-          {tip && (
-            <div
-              className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg bg-navy px-2.5 py-1 text-xs font-medium text-white shadow-card"
-              style={{ left: tip.x, top: tip.y - 8 }}
-              role="status"
-            >
-              {tip.label}
-            </div>
-          )}
+          {tip &&
+            (() => {
+              const dayEntries = entriesByDay.get(tip.date) ?? [];
+              const total = dayEntries.reduce((a, e) => a + e.minutes, 0);
+              return (
+                <div
+                  className="pointer-events-none fixed z-50 w-52 -translate-x-1/2 -translate-y-full rounded-xl border border-hairline bg-card p-2.5 shadow-card"
+                  style={{ left: tip.x, top: tip.y - 10 }}
+                  role="status"
+                  data-test-id="heatmap-popover"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-navy">{formatShortDate(tip.date)}</span>
+                    <span className="text-[11px] text-muted">
+                      {dayEntries.length
+                        ? `${dayEntries.length} · ${formatDuration(total)}`
+                        : "—"}
+                    </span>
+                  </div>
+                  {dayEntries.length === 0 ? (
+                    <p className="mt-1 text-[11px] text-muted">Nothing logged</p>
+                  ) : (
+                    <div className="mt-1.5 flex flex-col gap-1">
+                      {dayEntries.slice(0, 4).map((e) => (
+                        <div key={e.id} className="flex items-center gap-1.5 text-[11px]">
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: CATEGORY_MAP[e.category].color }}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-ink">{e.task}</span>
+                          <span className="shrink-0 tabular-nums text-muted">
+                            {formatDuration(e.minutes)}
+                          </span>
+                        </div>
+                      ))}
+                      {dayEntries.length > 4 && (
+                        <p className="text-[11px] text-muted">+{dayEntries.length - 4} more</p>
+                      )}
+                    </div>
+                  )}
+                  <p className="mt-1.5 border-t border-hairline pt-1 text-[10px] font-medium text-blue-brand">
+                    Click to open →
+                  </p>
+                </div>
+              );
+            })()}
           <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-muted">
             <span>Less</span>
             <span

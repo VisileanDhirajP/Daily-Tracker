@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { ClipboardList, SearchX } from "lucide-react";
 import type { Entry } from "@/lib/types";
 import { groupByDay, type EntryFilters, isFilterActive } from "@/lib/entries";
+import { useFlipList } from "@/hooks/useFlipList";
 import { DayGroup } from "./DayGroup";
 
 interface EntryListProps {
@@ -19,6 +20,8 @@ interface EntryListProps {
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
+  /** Drop an entry (by id) onto a day to re-date it. */
+  onMoveToDate?: (id: string, date: string) => void;
 }
 
 function Skeleton() {
@@ -50,8 +53,18 @@ export function EntryList({
   onEdit,
   onDuplicate,
   onDelete,
+  onMoveToDate,
 }: EntryListProps) {
   const groups = useMemo(() => groupByDay(entries), [entries]);
+  const listRef = useRef<HTMLDivElement>(null);
+  // Signature changes when entries are added, removed, or re-dated → drives the
+  // FLIP slide as rows reflow into their new positions.
+  const flipKey = useMemo(
+    () => entries.map((e) => `${e.id}:${e.entry_date}`).join("|"),
+    [entries],
+  );
+  // `view` re-shapes every row (card ↔ compact) — re-measure without animating.
+  useFlipList(listRef, flipKey, view);
 
   if (loading) return <Skeleton />;
 
@@ -89,23 +102,25 @@ export function EntryList({
         <ClipboardList size={32} className="text-blue-light" />
         <p className="text-sm font-medium text-ink">Nothing logged yet</p>
         <p className="max-w-sm text-sm text-muted">
-          Log your first task from the quick bar above — try{" "}
+          Hit <span className="font-semibold text-ink">Add entry</span> to log your first
+          task — or press{" "}
+          <kbd className="rounded border border-hairline px-1 py-0.5 text-[10px]">⌘K</kbd> and
+          type{" "}
           <code className="rounded bg-canvas px-1.5 py-0.5 text-xs text-ink">
             1h dev VS-1234 fixed the leak
-          </code>{" "}
-          and press Enter.
+          </code>
+          .
         </p>
         <p className="text-xs text-muted">
-          Tip: press{" "}
-          <kbd className="rounded border border-hairline px-1 py-0.5 text-[10px]">⌘K</kbd> anywhere
-          to search or log.
+          Tip: <kbd className="rounded border border-hairline px-1 py-0.5 text-[10px]">⌘K</kbd>{" "}
+          works anywhere — search, log, or jump between pages.
         </p>
       </div>
     );
   }
 
   return (
-    <div data-test-id="entry-list">
+    <div data-test-id="entry-list" ref={listRef}>
       {groups.map((g) => (
         <DayGroup
           key={g.date}
@@ -118,6 +133,7 @@ export function EntryList({
           onEdit={onEdit}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
+          onMoveToDate={onMoveToDate}
         />
       ))}
     </div>

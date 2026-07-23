@@ -9,9 +9,14 @@
  * next subscriber, so the action survives the route change.
  */
 
+import type { Category } from "./types";
+
 export type AppCommand =
   | { type: "new-entry" }
-  | { type: "quick-log"; text: string };
+  | { type: "quick-log"; text: string }
+  | { type: "filter-category"; category: Category }
+  | { type: "focus-date"; date: string }
+  | { type: "start-tour" };
 
 type Listener = (command: AppCommand) => void;
 

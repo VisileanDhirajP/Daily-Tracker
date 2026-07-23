@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Pencil, Trash2, CopyPlus } from "lucide-react";
+import { Clock, Pencil, Trash2, CopyPlus, GripVertical } from "lucide-react";
 import type { Entry, EntryStatus } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/constants";
 import { formatDuration } from "@/lib/format/time";
@@ -36,6 +36,7 @@ export function EntryCard({
   return (
     <div
       data-test-id="entry-card"
+      data-flip-id={entry.id}
       className={`group relative overflow-hidden rounded-2xl border bg-card p-4 pl-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-cardHover ${
         selected
           ? "border-blue-brand ring-2 ring-blue-brand/40"
@@ -52,6 +53,19 @@ export function EntryCard({
       />
 
       <div className="flex items-start gap-2.5">
+        <span
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/plain", entry.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          data-test-id="entry-drag-handle"
+          aria-label="Drag to move to another day"
+          title="Drag to another day"
+          className="mt-0.5 hidden shrink-0 cursor-grab text-muted/40 transition-colors hover:text-blue-brand active:cursor-grabbing sm:block"
+        >
+          <GripVertical size={15} />
+        </span>
         <Checkbox
           checked={selected}
           onCheckedChange={() => onToggleSelect(entry)}

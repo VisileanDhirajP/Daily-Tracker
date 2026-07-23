@@ -28,11 +28,20 @@ interface FiltersProps {
   filtered: Entry[];
   filters: EntryFilters;
   onChange: (next: EntryFilters) => void;
+  /** True while entries are still being fetched — pauses filter validation. */
+  loading?: boolean;
   /** Stack the controls for a narrow container (e.g. the dashboard side rail). */
   dense?: boolean;
 }
 
-export function Filters({ allEntries, filtered, filters, onChange, dense = false }: FiltersProps) {
+export function Filters({
+  allEntries,
+  filtered,
+  filters,
+  onChange,
+  loading = false,
+  dense = false,
+}: FiltersProps) {
   const dates = useMemo(() => uniqueDates(allEntries), [allEntries]);
   const cats = useMemo(() => usedCategories(allEntries), [allEntries]);
 
@@ -40,12 +49,17 @@ export function Filters({ allEntries, filtered, filters, onChange, dense = false
   // moved, or re-dated), drop back to "all" so the filter can't get stuck on a
   // value with a blank trigger and an empty list.
   useEffect(() => {
+    // Don't validate while entries are still loading — otherwise a filter
+    // applied before they arrive (e.g. deep-linked from Insights) gets wiped on
+    // mount. Once loaded, validation runs even against an empty list, so
+    // deleting the last entry can't leave a stuck filter.
+    if (loading) return;
     if (filters.date !== "all" && !dates.includes(filters.date)) {
       onChange({ ...filters, date: "all" });
     } else if (filters.category !== "all" && !cats.includes(filters.category)) {
       onChange({ ...filters, category: "all" });
     }
-  }, [dates, cats, filters, onChange]);
+  }, [dates, cats, filters, onChange, loading]);
 
   const active = isFilterActive(filters);
   const totalMinutes = filtered.reduce((a, e) => a + e.minutes, 0);

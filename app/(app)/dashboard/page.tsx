@@ -31,6 +31,7 @@ import { TemplatesBar } from "@/components/dashboard/TemplatesBar";
 import { CopyPreviousDay } from "@/components/dashboard/CopyPreviousDay";
 import { WeeklyGoalCard } from "@/components/dashboard/WeeklyGoalCard";
 import { WeeklyReviewNudge } from "@/components/dashboard/WeeklyReviewNudge";
+import { Tour, START_TOUR_EVENT } from "@/components/Tour";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -75,8 +76,12 @@ export default function DashboardPage() {
 
   // Remember the chosen density across sessions.
   useEffect(() => {
-    const v = localStorage.getItem("vldt:view");
-    if (v === "compact" || v === "cards") setView(v);
+    try {
+      const v = localStorage.getItem("vldt:view");
+      if (v === "compact" || v === "cards") setView(v);
+    } catch {
+      /* storage unavailable — keep the default */
+    }
   }, []);
   const changeView = (v: "cards" | "compact") => {
     setView(v);
@@ -178,6 +183,14 @@ export default function DashboardPage() {
     if (!pendingDelete) return;
     const entry = pendingDelete;
     setPendingDelete(null);
+    // Drop the entry from any bulk selection so the "N selected" count can't
+    // go stale (the restored copy gets a fresh id, so pruning is always right).
+    setSelectedIds((prev) => {
+      if (!prev.has(entry.id)) return prev;
+      const next = new Set(prev);
+      next.delete(entry.id);
+      return next;
+    });
     try {
       await removeEntry(entry.id);
       toast("Entry deleted.", "info", {
@@ -302,9 +315,29 @@ export default function DashboardPage() {
       } else {
         toast("Couldn't parse that — try adding a few words.", "error");
       }
+    } else if (command.type === "filter-category") {
+      // From a clicked category on Insights → focus the list on that category.
+      setFilters({ ...EMPTY_FILTERS, category: command.category });
+    } else if (command.type === "focus-date") {
+      // From a clicked heatmap cell → jump the list + stats to that day.
+      setSelectedDate(command.date);
+      setFilters({ ...EMPTY_FILTERS, date: command.date });
+    } else if (command.type === "start-tour") {
+      window.dispatchEvent(new Event(START_TOUR_EVENT));
     }
   };
   useEffect(() => subscribeAppCommand((command) => commandRef.current(command)), []);
+
+  const moveToDate = async (id: string, date: string) => {
+    const entry = entries.find((e) => e.id === id);
+    if (!entry || entry.entry_date === date) return;
+    try {
+      await patchEntry(id, { entry_date: date });
+      toast(`Moved to ${formatShortDate(date)}.`, "success");
+    } catch {
+      toast("Couldn't move the entry.", "error");
+    }
+  };
 
   const bulkMoveDay = async (date: string) => {
     const ids = [...selectedIds];
@@ -325,7 +358,7 @@ export default function DashboardPage() {
         {/* Capture controls + at-a-glance stats — right rail on desktop, top on mobile. */}
         <aside className="order-1 w-full shrink-0 lg:order-2 lg:w-80">
           <div className="flex flex-col gap-4 lg:sticky lg:top-6">
-            <HeaderStats entries={entries} selectedDate={selectedDate} stacked />
+            <HeaderStats entries={entries} selectedDate={selectedDate} stacked loading={loading} />
 
             <div className="card flex flex-col gap-3 p-4">
               {/* Date drives which day new entries land on — kept with Add entry. */}
@@ -415,6 +448,7 @@ export default function DashboardPage() {
               filtered={filtered}
               filters={filters}
               onChange={setFilters}
+              loading={loading}
             />
           </div>
 
@@ -494,9 +528,12 @@ export default function DashboardPage() {
             onEdit={handleEdit}
             onDuplicate={handleDuplicate}
             onDelete={setPendingDelete}
+            onMoveToDate={moveToDate}
           />
         </div>
       </div>
+
+      <Tour />
 
       <Modal
         open={formOpen}

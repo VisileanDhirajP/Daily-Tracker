@@ -294,7 +294,7 @@ export default function ExportPage() {
 
         {/* Preview */}
         <div>
-          <ReportPreview model={model} />
+          <ReportPreview model={model} loading={loading} />
         </div>
       </div>
     </main>

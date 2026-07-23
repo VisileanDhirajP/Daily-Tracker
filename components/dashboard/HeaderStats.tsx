@@ -11,9 +11,11 @@ interface HeaderStatsProps {
   selectedDate: string;
   /** Stack the three cards vertically for a narrow container (side rail). */
   stacked?: boolean;
+  /** Show a pulse placeholder for the value while entries are still loading. */
+  loading?: boolean;
 }
 
-export function HeaderStats({ entries, selectedDate, stacked = false }: HeaderStatsProps) {
+export function HeaderStats({ entries, selectedDate, stacked = false, loading = false }: HeaderStatsProps) {
   const { count, minutes, streak } = useMemo(() => {
     const dayEntries = entries.filter((e) => e.entry_date === selectedDate);
     return {
@@ -47,7 +49,11 @@ export function HeaderStats({ entries, selectedDate, stacked = false }: HeaderSt
               <Icon size={18} />
             </span>
             <div className="min-w-0">
-              <p className="text-lg font-bold leading-none text-navy">{s.value}</p>
+              {loading ? (
+                <span className="block h-4 w-8 animate-pulse rounded bg-hairline" />
+              ) : (
+                <p className="text-lg font-bold leading-none text-navy">{s.value}</p>
+              )}
               <p className="mt-1 truncate text-xs text-muted">{s.label}</p>
             </div>
           </div>

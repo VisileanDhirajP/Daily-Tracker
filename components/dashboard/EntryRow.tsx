@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2, CopyPlus } from "lucide-react";
+import { Pencil, Trash2, CopyPlus, GripVertical } from "lucide-react";
 import type { Entry, EntryStatus } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/constants";
 import { formatDuration } from "@/lib/format/time";
@@ -37,6 +37,7 @@ export function EntryRow({
   return (
     <div
       data-test-id="entry-card"
+      data-flip-id={entry.id}
       className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border py-2 pl-4 pr-3 transition-colors ${
         selected
           ? "border-blue-brand bg-blue-brand/5 ring-1 ring-blue-brand/40"
@@ -50,6 +51,20 @@ export function EntryRow({
         className="absolute inset-y-0 left-0 w-1"
         style={{ backgroundColor: meta.color }}
       />
+
+      <span
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", entry.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        data-test-id="entry-drag-handle"
+        aria-label="Drag to move to another day"
+        title="Drag to another day"
+        className="-ml-1 hidden shrink-0 cursor-grab text-muted/40 transition-colors hover:text-blue-brand active:cursor-grabbing sm:block"
+      >
+        <GripVertical size={14} />
+      </span>
 
       <Checkbox
         checked={selected}
