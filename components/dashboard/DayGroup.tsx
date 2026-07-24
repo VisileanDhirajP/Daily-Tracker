@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Copy } from "lucide-react";
 import type { Entry } from "@/lib/types";
 import type { DayGroup as DayGroupModel } from "@/lib/entries";
+import { entryBlockReason } from "@/lib/blockers";
 import { formatDuration } from "@/lib/format/time";
 import { formatLongDate, relativeLabel } from "@/lib/format/date";
 import { buildDaySummary } from "@/lib/export/daySummary";
@@ -25,6 +26,8 @@ interface DayGroupProps {
   onDelete: (entry: Entry) => void;
   /** Drop an entry (by id) onto this day to re-date it. */
   onMoveToDate?: (id: string, date: string) => void;
+  blockedTickets?: Map<string, string>;
+  onRaiseBlocker?: (entry: Entry) => void;
 }
 
 export function DayGroup({
@@ -38,6 +41,8 @@ export function DayGroup({
   onDuplicate,
   onDelete,
   onMoveToDate,
+  blockedTickets,
+  onRaiseBlocker,
 }: DayGroupProps) {
   const { toast } = useToast();
   const rel = relativeLabel(group.date);
@@ -130,6 +135,8 @@ export function DayGroup({
             onEdit,
             onDuplicate,
             onDelete,
+            blockedReason: blockedTickets ? entryBlockReason(entry, blockedTickets) : null,
+            onRaiseBlocker,
           };
           return view === "compact" ? (
             <EntryRow key={entry.id} {...shared} />

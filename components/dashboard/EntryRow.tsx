@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2, CopyPlus, GripVertical } from "lucide-react";
+import { Pencil, Trash2, CopyPlus, GripVertical, AlertTriangle } from "lucide-react";
 import type { Entry, EntryStatus } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/constants";
 import { formatDuration } from "@/lib/format/time";
@@ -19,6 +19,8 @@ interface EntryRowProps {
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
+  blockedReason?: string | null;
+  onRaiseBlocker?: (entry: Entry) => void;
 }
 
 /** Dense, single-line entry row for the Compact view. */
@@ -31,6 +33,8 @@ export function EntryRow({
   onEdit,
   onDuplicate,
   onDelete,
+  blockedReason = null,
+  onRaiseBlocker,
 }: EntryRowProps) {
   const meta = CATEGORY_MAP[entry.category];
 
@@ -79,6 +83,19 @@ export function EntryRow({
         </p>
       </Tooltip>
 
+      {blockedReason && (
+        <Tooltip label={blockedReason} align="start">
+          <span
+            data-test-id="entry-blocked-flag"
+            aria-label="Blocked"
+            className="hidden shrink-0 items-center rounded-full p-1 sm:flex"
+            style={{ backgroundColor: "#fdefe4", color: "#bd5a19" }}
+          >
+            <AlertTriangle size={12} />
+          </span>
+        </Tooltip>
+      )}
+
       <div className="hidden shrink-0 items-center sm:flex">
         <CategoryChip category={entry.category} />
       </div>
@@ -96,6 +113,19 @@ export function EntryRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+        {onRaiseBlocker && (
+          <Tooltip label="Raise a blocker">
+            <button
+              type="button"
+              onClick={() => onRaiseBlocker(entry)}
+              data-test-id="entry-raise-blocker"
+              aria-label="Raise a blocker"
+              className="rounded-lg p-1.5 text-muted transition-colors hover:bg-orange-brand/10 hover:text-orange-brand"
+            >
+              <AlertTriangle size={14} />
+            </button>
+          </Tooltip>
+        )}
         <Tooltip label="Edit entry">
           <button
             type="button"

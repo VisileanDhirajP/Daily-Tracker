@@ -1,5 +1,5 @@
 import { mockRepository, seedMockUser, seedMockProfile } from "../mockRepository";
-import type { EntryInput, Profile } from "../../types";
+import type { BlockerInput, EntryInput, Profile } from "../../types";
 
 const USER = "test-user";
 
@@ -23,6 +23,16 @@ function input(overrides: Partial<EntryInput> = {}): EntryInput {
     ticket_url: null,
     minutes: 45,
     status: "done",
+    ...overrides,
+  };
+}
+
+function blockerInput(overrides: Partial<BlockerInput> = {}): BlockerInput {
+  return {
+    reason: "Waiting on review",
+    waiting_on: null,
+    ticket_number: "VS-1",
+    ticket_url: null,
     ...overrides,
   };
 }
@@ -123,5 +133,51 @@ describe("mockRepository", () => {
     const second = JSON.parse(window.localStorage.getItem(`vldt:entries:${USER}`)!).length;
     expect(second).toBe(first);
     expect(first).toBeGreaterThan(0);
+  });
+});
+
+describe("mockRepository — blockers", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("creates, lists, updates, resolves and deletes a blocker", async () => {
+    const created = await mockRepository.createBlocker(USER, blockerInput());
+    expect(created.id).toBeTruthy();
+    expect(created.status).toBe("open");
+    expect(created.resolved_at).toBeNull();
+
+    expect(await mockRepository.listBlockers(USER)).toHaveLength(1);
+
+    const edited = await mockRepository.updateBlocker(USER, created.id, { reason: "Now waiting on QA" });
+    expect(edited.reason).toBe("Now waiting on QA");
+    expect(edited.ticket_number).toBe("VS-1"); // untouched fields preserved
+
+    const resolved = await mockRepository.setBlockerStatus(USER, created.id, "resolved");
+    expect(resolved.status).toBe("resolved");
+    expect(resolved.resolved_at).toBeTruthy();
+
+    const reopened = await mockRepository.setBlockerStatus(USER, created.id, "open");
+    expect(reopened.resolved_at).toBeNull();
+
+    await mockRepository.deleteBlocker(USER, created.id);
+    expect(await mockRepository.listBlockers(USER)).toHaveLength(0);
+  });
+
+  it("throws when updating a missing blocker", async () => {
+    await expect(mockRepository.updateBlocker(USER, "nope", { reason: "x" })).rejects.toThrow();
+  });
+
+  it("lists a manager's team OPEN blockers only, oldest-first, tagged with author", async () => {
+    seedMockProfile(profile({ id: "e1", full_name: "Emp One", email: "e1@x.com", manager_emails: ["boss@x.com"] }));
+    seedMockProfile(profile({ id: "e2", full_name: "Emp Two", email: "e2@x.com", manager_emails: ["other@x.com"] }));
+    const older = await mockRepository.createBlocker("e1", blockerInput({ reason: "Older" }));
+    await mockRepository.updateBlocker("e1", older.id, {}); // no-op edit
+    await mockRepository.createBlocker("e1", blockerInput({ reason: "Newer" }));
+    const resolved = await mockRepository.createBlocker("e1", blockerInput({ reason: "Done" }));
+    await mockRepository.setBlockerStatus("e1", resolved.id, "resolved");
+    await mockRepository.createBlocker("e2", blockerInput({ reason: "Not my report" }));
+
+    const rows = await mockRepository.listTeamBlockers({ id: "mgr", email: "boss@x.com", full_name: "Boss" });
+    expect(rows.map((r) => r.reason)).toEqual(["Older", "Newer"]); // e2 excluded, resolved excluded, oldest-first
+    expect(rows[0].employee.full_name).toBe("Emp One");
   });
 });

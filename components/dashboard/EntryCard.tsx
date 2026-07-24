@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Pencil, Trash2, CopyPlus, GripVertical } from "lucide-react";
+import { Clock, Pencil, Trash2, CopyPlus, GripVertical, AlertTriangle } from "lucide-react";
 import type { Entry, EntryStatus } from "@/lib/types";
 import { CATEGORY_MAP } from "@/lib/constants";
 import { formatDuration } from "@/lib/format/time";
@@ -19,6 +19,8 @@ interface EntryCardProps {
   onEdit: (entry: Entry) => void;
   onDuplicate: (entry: Entry) => void;
   onDelete: (entry: Entry) => void;
+  blockedReason?: string | null;
+  onRaiseBlocker?: (entry: Entry) => void;
 }
 
 export function EntryCard({
@@ -30,6 +32,8 @@ export function EntryCard({
   onEdit,
   onDuplicate,
   onDelete,
+  blockedReason = null,
+  onRaiseBlocker,
 }: EntryCardProps) {
   const meta = CATEGORY_MAP[entry.category];
 
@@ -79,6 +83,19 @@ export function EntryCard({
         </p>
 
         <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity duration-150 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+          {onRaiseBlocker && (
+            <Tooltip label="Raise a blocker">
+              <button
+                type="button"
+                onClick={() => onRaiseBlocker(entry)}
+                data-test-id="entry-raise-blocker"
+                aria-label="Raise a blocker"
+                className="rounded-lg p-1.5 text-muted transition-colors hover:bg-orange-brand/10 hover:text-orange-brand"
+              >
+                <AlertTriangle size={15} />
+              </button>
+            </Tooltip>
+          )}
           <Tooltip label="Edit entry">
             <button
               type="button"
@@ -117,6 +134,17 @@ export function EntryCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-2 pl-[30px]">
         <CategoryChip category={entry.category} />
+        {blockedReason && (
+          <Tooltip label={blockedReason}>
+            <span
+              data-test-id="entry-blocked-flag"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+              style={{ backgroundColor: "#fdefe4", color: "#bd5a19" }}
+            >
+              <AlertTriangle size={12} /> Blocked
+            </span>
+          </Tooltip>
+        )}
         {entry.minutes > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full border border-hairline bg-canvas px-2.5 py-1 text-xs font-medium text-muted">
             <Clock size={12} />

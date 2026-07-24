@@ -12,14 +12,17 @@ import {
   ChevronDown,
   LayoutGrid,
   Rows3,
+  AlertTriangle,
 } from "lucide-react";
-import type { Entry, EntryInput, EntryStatus, EntryTemplate } from "@/lib/types";
+import type { Blocker, BlockerInput, Entry, EntryInput, EntryStatus, EntryTemplate } from "@/lib/types";
 import { useEntries } from "@/hooks/useEntries";
 import { useTemplates } from "@/hooks/useTemplates";
+import { useBlockers } from "@/hooks/useBlockers";
 import { useToast } from "@/components/ui/ToastProvider";
 import { EMPTY_FILTERS, filterEntries, type EntryFilters } from "@/lib/entries";
 import { parseQuickEntry } from "@/lib/quickAdd";
 import { subscribeAppCommand, type AppCommand } from "@/lib/commands";
+import { blockedTicketMap, seedFromEntry, toBlockerInput } from "@/lib/blockers";
 import { STATUS_META, STATUS_ORDER } from "@/lib/constants";
 import { formatShortDate, todayISO } from "@/lib/format/date";
 import { HeaderStats } from "@/components/dashboard/HeaderStats";
@@ -31,6 +34,8 @@ import { TemplatesBar } from "@/components/dashboard/TemplatesBar";
 import { CopyPreviousDay } from "@/components/dashboard/CopyPreviousDay";
 import { WeeklyGoalCard } from "@/components/dashboard/WeeklyGoalCard";
 import { WeeklyReviewNudge } from "@/components/dashboard/WeeklyReviewNudge";
+import { BlockersCard } from "@/components/dashboard/BlockersCard";
+import { BlockerForm } from "@/components/dashboard/BlockerForm";
 import { Tour, START_TOUR_EVENT } from "@/components/Tour";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -63,6 +68,15 @@ export default function DashboardPage() {
     addTemplate,
     removeTemplate,
   } = useTemplates();
+  const {
+    blockers,
+    loading: blockersLoading,
+    addBlocker,
+    editBlocker,
+    resolveBlocker,
+    reopenBlocker,
+    removeBlocker,
+  } = useBlockers();
   const { toast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
@@ -73,6 +87,9 @@ export default function DashboardPage() {
   const [pendingDelete, setPendingDelete] = useState<Entry | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"cards" | "compact">("cards");
+  const [blockerFormOpen, setBlockerFormOpen] = useState(false);
+  const [editingBlocker, setEditingBlocker] = useState<Blocker | null>(null);
+  const [blockerSeed, setBlockerSeed] = useState<Partial<BlockerInput> | null>(null);
 
   // Remember the chosen density across sessions.
   useEffect(() => {
@@ -324,6 +341,8 @@ export default function DashboardPage() {
       setFilters({ ...EMPTY_FILTERS, date: command.date });
     } else if (command.type === "start-tour") {
       window.dispatchEvent(new Event(START_TOUR_EVENT));
+    } else if (command.type === "new-blocker") {
+      openBlockerAdd(command.seed ?? null);
     }
   };
   useEffect(() => subscribeAppCommand((command) => commandRef.current(command)), []);
@@ -349,6 +368,66 @@ export default function DashboardPage() {
       toast("Couldn't move entries.", "error");
     }
   };
+
+  const blockedTickets = useMemo(() => blockedTicketMap(blockers), [blockers]);
+
+  const openBlockerAdd = (seed: Partial<BlockerInput> | null = null) => {
+    setEditingBlocker(null);
+    setBlockerSeed(seed);
+    setBlockerFormOpen(true);
+  };
+  const handleBlockerEdit = (b: Blocker) => {
+    setEditingBlocker(b);
+    setBlockerSeed(null);
+    setBlockerFormOpen(true);
+  };
+  const closeBlockerForm = () => {
+    setBlockerFormOpen(false);
+    setEditingBlocker(null);
+    setBlockerSeed(null);
+  };
+  const handleBlockerSubmit = async (input: BlockerInput) => {
+    if (editingBlocker) {
+      await editBlocker(editingBlocker.id, input);
+      toast("Blocker updated.", "success");
+    } else {
+      await addBlocker(input);
+      toast("Blocker added.", "success");
+    }
+  };
+  const handleBlockerResolve = async (id: string) => {
+    try {
+      await resolveBlocker(id);
+      toast("Blocker resolved. 🎉", "success");
+    } catch {
+      toast("Couldn't resolve the blocker.", "error");
+    }
+  };
+  const handleBlockerReopen = async (id: string) => {
+    try {
+      await reopenBlocker(id);
+      toast("Blocker reopened.", "info");
+    } catch {
+      toast("Couldn't reopen the blocker.", "error");
+    }
+  };
+  const handleBlockerDelete = async (b: Blocker) => {
+    try {
+      await removeBlocker(b.id);
+      toast("Blocker removed.", "info", {
+        durationMs: 6000,
+        action: {
+          label: "Undo",
+          onClick: () => {
+            void addBlocker(toBlockerInput(b)).then(() => toast("Blocker restored.", "success"));
+          },
+        },
+      });
+    } catch {
+      toast("Couldn't delete the blocker.", "error");
+    }
+  };
+  const onRaiseBlocker = (entry: Entry) => openBlockerAdd(seedFromEntry(entry));
 
   return (
     <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-6">
@@ -392,6 +471,16 @@ export default function DashboardPage() {
                 onRemove={removeTemplate}
               />
             </div>
+
+            <BlockersCard
+              blockers={blockers}
+              loading={blockersLoading}
+              onAdd={() => openBlockerAdd()}
+              onEdit={handleBlockerEdit}
+              onResolve={handleBlockerResolve}
+              onReopen={handleBlockerReopen}
+              onDelete={handleBlockerDelete}
+            />
 
             <WeeklyGoalCard entries={entries} />
           </div>
@@ -529,6 +618,8 @@ export default function DashboardPage() {
             onDuplicate={handleDuplicate}
             onDelete={setPendingDelete}
             onMoveToDate={moveToDate}
+            blockedTickets={blockedTickets}
+            onRaiseBlocker={onRaiseBlocker}
           />
         </div>
       </div>
@@ -565,6 +656,23 @@ export default function DashboardPage() {
           onSubmit={handleSubmit}
           onSuccess={closeForm}
           onCancel={closeForm}
+        />
+      </Modal>
+
+      <Modal
+        open={blockerFormOpen}
+        title={editingBlocker ? "Edit blocker" : "Add a blocker"}
+        subtitle={editingBlocker ? undefined : "Track something that's stopping a task"}
+        icon={<AlertTriangle size={20} />}
+        onClose={closeBlockerForm}
+        testId="blocker-modal"
+      >
+        <BlockerForm
+          editing={editingBlocker}
+          seed={blockerSeed}
+          onSubmit={handleBlockerSubmit}
+          onSuccess={closeBlockerForm}
+          onCancel={closeBlockerForm}
         />
       </Modal>
 

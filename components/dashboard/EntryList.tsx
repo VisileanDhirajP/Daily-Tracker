@@ -22,6 +22,10 @@ interface EntryListProps {
   onDelete: (entry: Entry) => void;
   /** Drop an entry (by id) onto a day to re-date it. */
   onMoveToDate?: (id: string, date: string) => void;
+  /** Normalized ticket → reason, for the inline "blocked" flag. */
+  blockedTickets?: Map<string, string>;
+  /** Raise a blocker seeded from this entry. */
+  onRaiseBlocker?: (entry: Entry) => void;
 }
 
 function Skeleton() {
@@ -54,6 +58,8 @@ export function EntryList({
   onDuplicate,
   onDelete,
   onMoveToDate,
+  blockedTickets,
+  onRaiseBlocker,
 }: EntryListProps) {
   const groups = useMemo(() => groupByDay(entries), [entries]);
   const listRef = useRef<HTMLDivElement>(null);
@@ -134,6 +140,8 @@ export function EntryList({
           onDuplicate={onDuplicate}
           onDelete={onDelete}
           onMoveToDate={onMoveToDate}
+          blockedTickets={blockedTickets}
+          onRaiseBlocker={onRaiseBlocker}
         />
       ))}
     </div>

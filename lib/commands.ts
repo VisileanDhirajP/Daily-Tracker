@@ -9,14 +9,15 @@
  * next subscriber, so the action survives the route change.
  */
 
-import type { Category } from "./types";
+import type { BlockerInput, Category } from "./types";
 
 export type AppCommand =
   | { type: "new-entry" }
   | { type: "quick-log"; text: string }
   | { type: "filter-category"; category: Category }
   | { type: "focus-date"; date: string }
-  | { type: "start-tour" };
+  | { type: "start-tour" }
+  | { type: "new-blocker"; seed?: Partial<BlockerInput> };
 
 type Listener = (command: AppCommand) => void;
 

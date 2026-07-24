@@ -1,10 +1,14 @@
 import type { DataRepository } from "./repository";
 import type {
   AuthUser,
+  Blocker,
+  BlockerInput,
+  BlockerStatus,
   Entry,
   EntryInput,
   EntryTemplate,
   Profile,
+  TeamBlockerRow,
   TeamFeedRow,
   TemplateInput,
   UserRole,
@@ -191,5 +195,99 @@ export const supabaseRepository: DataRepository = {
       .eq("id", id)
       .eq("user_id", userId);
     if (error) throw error;
+  },
+
+  async listBlockers(userId: string): Promise<Blocker[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("blockers")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as Blocker[];
+  },
+
+  async createBlocker(userId: string, input: BlockerInput): Promise<Blocker> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("blockers")
+      .insert({ ...input, user_id: userId })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Blocker;
+  },
+
+  async updateBlocker(userId: string, id: string, patch: Partial<BlockerInput>): Promise<Blocker> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("blockers")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Blocker;
+  },
+
+  async setBlockerStatus(userId: string, id: string, status: BlockerStatus): Promise<Blocker> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("blockers")
+      .update({
+        status,
+        resolved_at: status === "resolved" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as Blocker;
+  },
+
+  async deleteBlocker(userId: string, id: string): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("blockers")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (error) throw error;
+  },
+
+  async listTeamBlockers(manager: AuthUser): Promise<TeamBlockerRow[]> {
+    const supabase = createClient();
+    // RLS ("blockers_select_team"/"blockers_select_admin") narrows rows to the
+    // team. Resolve author identity with a second query (no direct FK to profiles).
+    const { data: blockers, error } = await supabase
+      .from("blockers")
+      .select("*")
+      .eq("status", "open")
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const rows = (blockers ?? []) as Blocker[];
+    if (rows.length === 0) return [];
+
+    const ids = [...new Set(rows.map((b) => b.user_id))];
+    const { data: profiles, error: pErr } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", ids);
+    if (pErr) throw pErr;
+
+    const byId = new Map(
+      (profiles ?? []).map((p) => [
+        p.id as string,
+        { id: p.id as string, full_name: (p.full_name as string) ?? "", email: (p.email as string) ?? "" },
+      ]),
+    );
+    return rows.map((b) => ({
+      ...b,
+      employee: byId.get(b.user_id) ?? { id: b.user_id, full_name: "Unknown", email: "" },
+    }));
   },
 };

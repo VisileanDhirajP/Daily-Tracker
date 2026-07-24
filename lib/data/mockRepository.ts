@@ -1,10 +1,14 @@
 import type { DataRepository } from "./repository";
 import type {
   AuthUser,
+  Blocker,
+  BlockerInput,
+  BlockerStatus,
   Entry,
   EntryInput,
   EntryTemplate,
   Profile,
+  TeamBlockerRow,
   TeamFeedRow,
   TemplateInput,
   UserRole,
@@ -14,6 +18,7 @@ import { buildSeedEntries } from "./seed";
 const ENTRIES_KEY = (uid: string) => `vldt:entries:${uid}`;
 const PROFILES_KEY = "vldt:profiles"; // single map: { [userId]: Profile }
 const TEMPLATES_KEY = (uid: string) => `vldt:templates:${uid}`;
+const BLOCKERS_KEY = (uid: string) => `vldt:blockers:${uid}`;
 
 /** In-memory fallback when localStorage is unavailable (SSR / tests). */
 const memory = new Map<string, string>();
@@ -53,6 +58,21 @@ function loadEntries(userId: string): Entry[] {
 
 function saveEntries(userId: string, entries: Entry[]): void {
   write(ENTRIES_KEY(userId), JSON.stringify(entries));
+}
+
+function loadBlockers(userId: string): Blocker[] {
+  const raw = read(BLOCKERS_KEY(userId));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Blocker[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveBlockers(userId: string, list: Blocker[]): void {
+  write(BLOCKERS_KEY(userId), JSON.stringify(list));
 }
 
 function loadProfiles(): Record<string, Profile> {
@@ -240,5 +260,77 @@ export const mockRepository: DataRepository = {
   async deleteTemplate(userId: string, id: string): Promise<void> {
     const list = await this.listTemplates(userId);
     write(TEMPLATES_KEY(userId), JSON.stringify(list.filter((t) => t.id !== id)));
+  },
+
+  async listBlockers(userId: string): Promise<Blocker[]> {
+    return loadBlockers(userId);
+  },
+
+  async createBlocker(userId: string, input: BlockerInput): Promise<Blocker> {
+    const list = loadBlockers(userId);
+    const now = isoNow();
+    const b: Blocker = {
+      id: newId(),
+      user_id: userId,
+      status: "open",
+      created_at: now,
+      resolved_at: null,
+      updated_at: now,
+      ...input,
+    };
+    list.push(b);
+    saveBlockers(userId, list);
+    return b;
+  },
+
+  async updateBlocker(userId: string, id: string, patch: Partial<BlockerInput>): Promise<Blocker> {
+    const list = loadBlockers(userId);
+    const idx = list.findIndex((b) => b.id === id);
+    if (idx === -1) throw new Error("Blocker not found");
+    const updated: Blocker = { ...list[idx], ...patch, updated_at: isoNow() };
+    list[idx] = updated;
+    saveBlockers(userId, list);
+    return updated;
+  },
+
+  async setBlockerStatus(userId: string, id: string, status: BlockerStatus): Promise<Blocker> {
+    const list = loadBlockers(userId);
+    const idx = list.findIndex((b) => b.id === id);
+    if (idx === -1) throw new Error("Blocker not found");
+    const now = isoNow();
+    const updated: Blocker = {
+      ...list[idx],
+      status,
+      resolved_at: status === "resolved" ? now : null,
+      updated_at: now,
+    };
+    list[idx] = updated;
+    saveBlockers(userId, list);
+    return updated;
+  },
+
+  async deleteBlocker(userId: string, id: string): Promise<void> {
+    saveBlockers(userId, loadBlockers(userId).filter((b) => b.id !== id));
+  },
+
+  async listTeamBlockers(manager: AuthUser): Promise<TeamBlockerRow[]> {
+    const profiles = loadProfiles();
+    const isAdmin = profiles[manager.id]?.role === "admin";
+    const mgr = manager.email.trim().toLowerCase();
+    const team = Object.values(profiles).filter(
+      (p) => isAdmin || p.manager_emails.some((e) => e.trim().toLowerCase() === mgr),
+    );
+    const rows: TeamBlockerRow[] = [];
+    for (const p of team) {
+      for (const b of loadBlockers(p.id)) {
+        if (b.status !== "open") continue;
+        rows.push({
+          ...b,
+          employee: { id: p.id, full_name: p.full_name, email: p.email ?? "" },
+        });
+      }
+    }
+    rows.sort((a, b) => a.created_at.localeCompare(b.created_at)); // oldest-first
+    return rows;
   },
 };

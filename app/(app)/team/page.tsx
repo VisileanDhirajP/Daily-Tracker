@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
-import type { Category, EntryStatus, TeamFeedRow as TeamFeedRowData } from "@/lib/types";
+import type { Category, EntryStatus, TeamBlockerRow, TeamFeedRow as TeamFeedRowData } from "@/lib/types";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { repository } from "@/lib/data";
 import { canViewTeam } from "@/lib/roles";
@@ -21,6 +21,7 @@ import { RequireRole } from "@/components/RequireRole";
 import { TeamFeedRow } from "@/components/team/TeamFeedRow";
 import { TeamExportMenu } from "@/components/team/TeamExportMenu";
 import { TeamSummary } from "@/components/team/TeamSummary";
+import { TeamBlockersPanel } from "@/components/team/TeamBlockersPanel";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import {
@@ -35,6 +36,7 @@ function TeamFeed() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<TeamFeedRowData[]>([]);
+  const [blockerRows, setBlockerRows] = useState<TeamBlockerRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [rangeKey, setRangeKey] = useState<RangeKey>("week");
@@ -50,14 +52,16 @@ function TeamFeed() {
     if (!user) return;
     let active = true;
     setLoading(true);
-    repository
-      .listTeamEntries(user)
-      .then((r) => {
-        if (active) setRows(r);
+    Promise.all([repository.listTeamEntries(user), repository.listTeamBlockers(user)])
+      .then(([entriesRes, blockersRes]) => {
+        if (!active) return;
+        setRows(entriesRes);
+        setBlockerRows(blockersRes);
       })
       .catch(() => {
         if (active) {
           setRows([]);
+          setBlockerRows([]);
           toast("Couldn't load the team feed. Please retry.", "error");
         }
       })
@@ -149,6 +153,8 @@ function TeamFeed() {
           <TeamExportMenu rows={filtered} meta={exportMeta} />
         </div>
       </div>
+
+      {!loading && <TeamBlockersPanel rows={blockerRows} />}
 
       {/* Filters */}
       <div className="card mt-6 flex flex-col gap-3 p-4">

@@ -10,6 +10,7 @@ import {
   Moon,
   Zap,
   Compass,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -120,6 +121,17 @@ export function CommandPalette() {
       run: () => {
         router.push("/dashboard");
         dispatchAppCommand({ type: "start-tour" });
+      },
+    },
+    {
+      id: "new-blocker",
+      group: "Actions",
+      label: "Add blocker",
+      hint: "Flag something in your way",
+      icon: AlertTriangle,
+      run: () => {
+        router.push("/dashboard");
+        dispatchAppCommand({ type: "new-blocker" });
       },
     },
   ];

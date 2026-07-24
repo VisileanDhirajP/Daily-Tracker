@@ -1,9 +1,13 @@
 import type {
   AuthUser,
+  Blocker,
+  BlockerInput,
+  BlockerStatus,
   Entry,
   EntryInput,
   EntryTemplate,
   Profile,
+  TeamBlockerRow,
   TeamFeedRow,
   TemplateInput,
   UserRole,
@@ -52,4 +56,14 @@ export interface DataRepository {
   listTemplates(userId: string): Promise<EntryTemplate[]>;
   createTemplate(userId: string, input: TemplateInput): Promise<EntryTemplate>;
   deleteTemplate(userId: string, id: string): Promise<void>;
+
+  // --- Blockers (impediment tracking) --------------------------------------
+  listBlockers(userId: string): Promise<Blocker[]>;
+  createBlocker(userId: string, input: BlockerInput): Promise<Blocker>;
+  updateBlocker(userId: string, id: string, patch: Partial<BlockerInput>): Promise<Blocker>;
+  /** Resolve/reopen; stamps or clears resolved_at. */
+  setBlockerStatus(userId: string, id: string, status: BlockerStatus): Promise<Blocker>;
+  deleteBlocker(userId: string, id: string): Promise<void>;
+  /** Open blockers of the manager's team, each tagged with its author (oldest-first). */
+  listTeamBlockers(manager: AuthUser): Promise<TeamBlockerRow[]>;
 }

@@ -89,3 +89,31 @@ export interface TeamFeedRow extends Entry {
     email: string;
   };
 }
+
+export type BlockerStatus = "open" | "resolved";
+
+export interface Blocker {
+  id: string;
+  user_id: string;
+  reason: string;
+  waiting_on: string | null;
+  ticket_number: string | null;
+  ticket_url: string | null;
+  status: BlockerStatus;
+  created_at: string;
+  resolved_at: string | null;
+  updated_at: string;
+}
+
+/** Payload for creating/updating a blocker (server fields omitted). */
+export interface BlockerInput {
+  reason: string;
+  waiting_on: string | null;
+  ticket_number: string | null;
+  ticket_url: string | null;
+}
+
+/** A blocker enriched with its author, for the manager team feed. */
+export interface TeamBlockerRow extends Blocker {
+  employee: { id: string; full_name: string; email: string };
+}
